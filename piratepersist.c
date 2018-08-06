@@ -45,14 +45,14 @@ static size_t stream_list_parse_m3u8(char *buffer, size_t size, size_t nmemb, vo
     	if (buffer[i] == '\n') {
         	if (parsectx->buffer != NULL) {
                 buffer[i] = '\0';
-				stream_list->streams[stream_list->n_streams] = malloc(strlen(parsectx->buffer) + strlen(&buffer[last_line_start]) + 1);
+				stream_list->streams[stream_list->n_streams] = malloc(strlen(parsectx->buffer) + i - last_line_start + 1);
 				strcpy(stream_list->streams[stream_list->n_streams], parsectx->buffer);
 				strcat(stream_list->streams[stream_list->n_streams++], &buffer[last_line_start]);
 				free(parsectx->buffer);
             	parsectx->buffer = NULL;
             } else if (buffer[last_line_start] != '#') {
                 buffer[i] = '\0';
-				stream_list->streams[stream_list->n_streams] = malloc(strlen(&buffer[last_line_start]) + 1);
+				stream_list->streams[stream_list->n_streams] = malloc(i - last_line_start + 1);
                 strcpy(stream_list->streams[stream_list->n_streams++], &buffer[last_line_start]);
             }
             last_line_start = i + 1;
