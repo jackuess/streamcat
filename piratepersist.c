@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,11 +91,10 @@ struct StreamList *get_stream_list(const char *url)
         goto error;
     }
 
-    if (CURLE_OK != (curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)parsectx))) {
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)parsectx))) {
         goto error;
     }
 
-    dbg_print("piratepersist", "downloading %s\n", url);
     if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
 		goto error;
     }
@@ -117,6 +114,45 @@ struct StreamList *get_stream_list(const char *url)
         return NULL;
 }
 
+static size_t write_data(void *buffer, size_t size, size_t nmemb, void *userp)
+{
+    return fwrite(buffer, size, nmemb, (FILE *)userp);
+}
+
+int concat_m3u8(FILE *stream, const char *url)
+{
+    CURL *curl_handle = curl_easy_init();
+    CURLcode res = CURLE_OK;
+
+    dbg_print("piratepersist", "downloading %s\n", url);
+
+    if (!curl_handle) {
+        goto finally;
+    }
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
+        goto finally;
+    }
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_data))) {
+        goto finally;
+    }
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)stream))) {
+        goto finally;
+    }
+
+    if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
+        goto finally;
+    }
+
+    finally:
+        if (res != CURLE_OK) {
+            dbg_print("libcurl", "%s\n", curl_easy_strerror(res));
+        }
+        if (curl_handle) {
+            curl_easy_cleanup(curl_handle);
+        }
+        return res;
+}
+
 int main(int argc, char *argv[argc+1])
 {
     curl_global_init(0);
@@ -128,9 +164,10 @@ int main(int argc, char *argv[argc+1])
     }
 
     if ((stream_list = get_stream_list(argv[1]))) {
-        // stream_list_print(stream_list);
         if ((chunks = get_stream_list(stream_list->streams[0]))) {
-            stream_list_print(chunks);
+            for (unsigned int i = 0; i < chunks->n_streams; i++) {
+                concat_m3u8(stdout, chunks->streams[i]);
+            }
             stream_list_free(chunks);
         }
         stream_list_free(stream_list);
