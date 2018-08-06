@@ -58,11 +58,16 @@ static size_t stream_list_parse_m3u8(char *buffer, size_t size, size_t nmemb, vo
             last_line_start = i + 1;
     	}
 	}
-	if (last_line_start < realsize && buffer[last_line_start] != '#') {
-    	// TODO(Jacques): Check if parsectx->buffer is not NULL
-    	parsectx->buffer = malloc(realsize - last_line_start + 1);
-    	strncpy(parsectx->buffer, &buffer[last_line_start], realsize - last_line_start);
-    	parsectx->buffer[realsize - last_line_start] = '\0';
+
+	size_t chars_remaining = realsize - last_line_start;
+	if (chars_remaining > 0 && buffer[last_line_start] != '#') {
+    	if (parsectx->buffer == NULL) {
+        	parsectx->buffer = malloc(chars_remaining + 1);
+        	parsectx->buffer[0] = '\0';
+    	} else {
+        	parsectx->buffer = realloc(parsectx->buffer, strlen(parsectx->buffer) + chars_remaining + 1);
+    	}
+    	strncat(parsectx->buffer, &buffer[last_line_start], chars_remaining);
 	}
 
 	return realsize;
