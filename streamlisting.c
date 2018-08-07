@@ -12,10 +12,10 @@ struct M3U8ParseContext {
     struct StreamList *streamlst;
 };
 
-void stream_list_print(const struct StreamList *lst)
+void stream_list_print(FILE *f, const struct StreamList *lst)
 {
     for (unsigned int i = 0; i < lst->n_streams; i++) {
-        printf("%d: %s\n", i, lst->streams[i]);
+        fprintf(f, "%d\t%s\n", i, lst->streams[i]);
     }
 }
 

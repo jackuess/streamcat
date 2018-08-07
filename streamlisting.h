@@ -6,6 +6,7 @@ struct StreamList {
     char *streams[1000];  // TODO(Jacques): Make dynamic
 };
 
+void stream_list_print(FILE *f, const struct StreamList *lst);
 void stream_list_free(struct StreamList *lst);
 struct StreamList *m3u8_get_stream_list(const char *url);
 int concat_streams(FILE *stream, const struct StreamList *lst);
