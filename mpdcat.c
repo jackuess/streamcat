@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,20 +11,173 @@
 #include "output.h"
 #include "vector.h"
 
+enum URL_TEMPLATE_IDENTIFIERS {
+    _UNDEFINED,
+    REPRESENTATION_ID,
+    NUMBER,
+    BANDWIDTH,
+    TIME
+};
+
+#define MAX_REPLACEMENT_IDS 128
+
+struct URLTemplate {
+    char *template;
+    enum URL_TEMPLATE_IDENTIFIERS replacement_ids[MAX_REPLACEMENT_IDS];
+};
+
+struct URLTemplate parse_url_template(const char *str)
+{
+    bool tag_open = false;
+    bool format_open = false;
+    enum URL_TEMPLATE_IDENTIFIERS replacement_tag = _UNDEFINED;
+    size_t num_replacement_ids = 0;
+    struct URLTemplate template = {0};
+    template.template = malloc(sizeof (template.template) * strlen(str) + 1);
+    template.replacement_ids[0] = _UNDEFINED;
+
+	size_t j = 0;
+    for (size_t i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '$') {
+            if (tag_open) {
+                template.replacement_ids[num_replacement_ids++] = replacement_tag;
+                if (!format_open) {
+                    template.template[j++] = '%';
+                    template.template[j++] = 'd';
+                }
+
+                replacement_tag = _UNDEFINED;
+                tag_open = false;
+            } else {
+                tag_open = true;
+                format_open = false;
+            }
+        } else if (tag_open) {
+            if (replacement_tag == _UNDEFINED) {
+                switch (str[i]) {
+                case 'R':
+                    replacement_tag = REPRESENTATION_ID;
+                    break;
+                case 'N':
+                    replacement_tag = NUMBER;
+                    break;
+                case 'B':
+                    replacement_tag = BANDWIDTH;
+                    break;
+                case 'T':
+                    replacement_tag = TIME;
+                    break;
+                }
+            } else if (format_open) {
+                template.template[j++] = str[i];
+            } else if (str[i] == '%') {
+				template.template[j++] = '%';
+				format_open = true;
+            }
+        } else {
+            template.template[j++] = str[i];
+        }
+    }
+    template.template[j] = '\0';
+    template.replacement_ids[num_replacement_ids] = _UNDEFINED;
+
+    return template;
+}
+
+char *url_template_format(const char *template, int representation_id, int number, int bandwidth, int time)
+{
+    bool tag_open = false;
+    bool format_open = false;
+    int *replacement_tag = NULL;
+    size_t result_capacity = sizeof (char*) * strlen(template) * 2;
+    char *result = malloc(result_capacity);
+    size_t result_len = 0;
+    char *tail = malloc(sizeof (char*) * 3);
+    size_t tail_len = 0;
+    char *fmt = malloc(sizeof(char*) * 1024);  // TODO(Jacques): Make dynamic
+    size_t fmt_len = 0;
+
+    for (size_t i = 0; template[i] != '\0'; i++) {
+        if (template[i] == '$') {
+            if (tag_open) {
+                if (replacement_tag == NULL) {
+                    tail[tail_len++] = '$';
+                } else {
+                    if (format_open) {
+                        fmt[fmt_len] = '\0';
+                    } else {
+                        strcpy(fmt, "%d");
+                    }
+                    if (replacement_tag != NULL) {
+                        tail_len += asprintf(&tail, fmt, *replacement_tag);
+                    }
+
+                    replacement_tag = NULL;
+                }
+                tag_open = false;
+            } else {
+                tag_open = true;
+                format_open = false;
+            }
+        } else if (tag_open) {
+            if (replacement_tag == NULL) {
+                switch (template[i]) {
+                case 'R':
+                    replacement_tag = &representation_id;
+                    break;
+                case 'N':
+                    replacement_tag = &number;
+                    break;
+                case 'B':
+                    replacement_tag = &bandwidth;
+                    break;
+                case 'T':
+                    replacement_tag = &time;
+                    break;
+                }
+            } else if (format_open) {
+                fmt[fmt_len++] = template[i];
+            } else if (template[i] == '%') {
+                fmt[fmt_len++] = '%';
+				format_open = true;
+            }
+        } else {
+            tail[tail_len++] = template[i];
+        }
+
+        if ((result_capacity / sizeof (char*)) < (result_len + tail_len + 1)) {
+            result_capacity *= 2;
+            result = realloc(result, result_capacity);
+        }
+        for (size_t j = 0; j < tail_len; j++) {
+            result[result_len++] = tail[j];
+        }
+        tail_len = 0;
+    }
+    free(fmt);
+    free(tail);
+
+    result[result_len] = '\0';
+
+    return result;
+}
+
 struct SegmentTime {
     int start;
     int part_duration;
     int part_count;
 };
 
-struct Representation {
-    const char *id;
-};
-
 struct SegmentTemplate {
     const char *initialization;
     const char *media;
     struct Vector *timeline;
+};
+
+struct Representation {
+    const char *id;
+    struct SegmentTemplate segment_template;
+    // TODO(Jacques): Allow Representation to override AdaptationSet.SegmentTemplate
 };
 
 struct AdaptationSet {
@@ -125,6 +281,9 @@ int main(int argc, char *argv[argc + 1])
         struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
         printf("%zu\t%s\n", i, set->mime_type);
         printf("initialization: %s media: %s timeline_len: %zu\n", set->segment_template.initialization, set->segment_template.media, set->segment_template.timeline->len);
+        struct URLTemplate media_template = parse_url_template(set->segment_template.media);
+        printf("media: %s %d\n", media_template.template, media_template.replacement_ids[1]);
+        printf("media: %s\n", url_template_format(set->segment_template.media, 1, 2, 3, 4));
         for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
             struct SegmentTime *t = set->segment_template.timeline->items[j];
             printf("start: %d duration: %d count: %d\n", t->start, t->part_duration, t->part_count);

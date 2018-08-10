@@ -22,8 +22,10 @@ def parse_template(template):
     tags = []
     for c in template:
         if c == "$":
-            if open:
-                c = "}"
+            if open and not tag:
+                open = False
+                ret += "$"
+            elif open:
                 open = False
                 if "%" in tag:
                     name, template = tag.split("%", 1)
@@ -34,7 +36,6 @@ def parse_template(template):
                 tag = ""
                 ret += "%" + template
             else:
-                c = "{"
                 open = True
         elif open:
             tag += c
