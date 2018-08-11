@@ -129,6 +129,7 @@ char *url_template_format(const struct URLTemplate template, int representation_
                 break;
             case _UNDEFINED:
                 *replacement = 0;
+                break;
             }
             result_parts_len += asprintf(&result_parts[i], template.fmt_strings[i], *replacement);
         }
