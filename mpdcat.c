@@ -22,7 +22,8 @@ enum URL_TEMPLATE_IDENTIFIERS {
 #define MAX_REPLACEMENT_IDS 128
 
 struct URLTemplate {
-    char *template;
+    char *fmt_strings[MAX_REPLACEMENT_IDS];
+    size_t num_fmt_strings;
     enum URL_TEMPLATE_IDENTIFIERS replacement_ids[MAX_REPLACEMENT_IDS];
 };
 
@@ -30,23 +31,34 @@ struct URLTemplate parse_url_template(const char *str)
 {
     bool tag_open = false;
     bool format_open = false;
+    char *fmt = malloc(sizeof (char*) * strlen(str) + 1);
+    size_t fmt_len = 0;
     enum URL_TEMPLATE_IDENTIFIERS replacement_tag = _UNDEFINED;
     size_t num_replacement_ids = 0;
     struct URLTemplate template = {0};
-    template.template = malloc(sizeof (template.template) * strlen(str) + 1);
     template.replacement_ids[0] = _UNDEFINED;
+    template.num_fmt_strings = 0;
 
-	size_t j = 0;
     for (size_t i = 0; str[i] != '\0'; i++) {
         if (str[i] == '$') {
             if (tag_open) {
-                template.replacement_ids[num_replacement_ids++] = replacement_tag;
-                if (!format_open) {
-                    template.template[j++] = '%';
-                    template.template[j++] = 'd';
+                if (replacement_tag == _UNDEFINED) {
+                    fmt[fmt_len++] = '$';
+                } else {
+                    if (!format_open) {
+                        fmt[fmt_len++] = '%';
+                        fmt[fmt_len++] = 'd';
+                    }
+                    fmt[fmt_len++] = '\0';
+
+                    template.fmt_strings[template.num_fmt_strings] = malloc(sizeof (char*) * strlen(fmt) + 1);
+                    strcpy(template.fmt_strings[template.num_fmt_strings++], fmt);
+
+                    template.replacement_ids[num_replacement_ids++] = replacement_tag;
+                    replacement_tag = _UNDEFINED;
+                    fmt_len = 0;
                 }
 
-                replacement_tag = _UNDEFINED;
                 tag_open = false;
             } else {
                 tag_open = true;
@@ -69,94 +81,67 @@ struct URLTemplate parse_url_template(const char *str)
                     break;
                 }
             } else if (format_open) {
-                template.template[j++] = str[i];
+                fmt[fmt_len++] = str[i];
             } else if (str[i] == '%') {
-				template.template[j++] = '%';
+				fmt[fmt_len++] = '%';
 				format_open = true;
             }
         } else {
-            template.template[j++] = str[i];
+            fmt[fmt_len++] = str[i];
         }
     }
-    template.template[j] = '\0';
     template.replacement_ids[num_replacement_ids] = _UNDEFINED;
+    if (fmt_len > 0) {
+        fmt[fmt_len++] = '\0';
+        template.fmt_strings[template.num_fmt_strings] = malloc(sizeof (char*) * strlen(fmt) + 1);
+        strcpy(template.fmt_strings[template.num_fmt_strings++], fmt);
+    }
+
 
     return template;
 }
 
-char *url_template_format(const char *template, int representation_id, int number, int bandwidth, int time)
+char *url_template_format(const struct URLTemplate template, int representation_id, int number, int bandwidth, int time)
 {
-    bool tag_open = false;
-    bool format_open = false;
-    int *replacement_tag = NULL;
-    size_t result_capacity = sizeof (char*) * strlen(template) * 2;
-    char *result = malloc(result_capacity);
-    size_t result_len = 0;
-    char *tail = malloc(sizeof (char*) * 3);
-    size_t tail_len = 0;
-    char *fmt = malloc(sizeof(char*) * 1024);  // TODO(Jacques): Make dynamic
-    size_t fmt_len = 0;
+    char *result_parts[template.num_fmt_strings];
+    size_t result_parts_len = 0;
+    int *replacement = NULL;
 
-    for (size_t i = 0; template[i] != '\0'; i++) {
-        if (template[i] == '$') {
-            if (tag_open) {
-                if (replacement_tag == NULL) {
-                    tail[tail_len++] = '$';
-                } else {
-                    if (format_open) {
-                        fmt[fmt_len] = '\0';
-                    } else {
-                        strcpy(fmt, "%d");
-                    }
-                    if (replacement_tag != NULL) {
-                        tail_len += asprintf(&tail, fmt, *replacement_tag);
-                    }
-
-                    replacement_tag = NULL;
-                }
-                tag_open = false;
-            } else {
-                tag_open = true;
-                format_open = false;
-            }
-        } else if (tag_open) {
-            if (replacement_tag == NULL) {
-                switch (template[i]) {
-                case 'R':
-                    replacement_tag = &representation_id;
-                    break;
-                case 'N':
-                    replacement_tag = &number;
-                    break;
-                case 'B':
-                    replacement_tag = &bandwidth;
-                    break;
-                case 'T':
-                    replacement_tag = &time;
-                    break;
-                }
-            } else if (format_open) {
-                fmt[fmt_len++] = template[i];
-            } else if (template[i] == '%') {
-                fmt[fmt_len++] = '%';
-				format_open = true;
-            }
+    for (size_t i = 0; i < template.num_fmt_strings; i++) {
+        if (template.replacement_ids[i] == _UNDEFINED) {
+            size_t fmt_len = strlen(template.fmt_strings[i]);
+            result_parts_len += fmt_len;
+            result_parts[i] = malloc(sizeof(char*) * fmt_len + 1);
+            strcpy(result_parts[i], template.fmt_strings[i]);
         } else {
-            tail[tail_len++] = template[i];
+            switch (template.replacement_ids[i]) {
+            case REPRESENTATION_ID:
+                replacement = &representation_id;
+                break;
+            case NUMBER:
+                replacement = &number;
+                break;
+            case BANDWIDTH:
+                replacement = &bandwidth;
+                break;
+            case TIME:
+                replacement = &time;
+                break;
+            case _UNDEFINED:
+                *replacement = 0;
+            }
+            result_parts_len += asprintf(&result_parts[i], template.fmt_strings[i], *replacement);
         }
-
-        if ((result_capacity / sizeof (char*)) < (result_len + tail_len + 1)) {
-            result_capacity *= 2;
-            result = realloc(result, result_capacity);
-        }
-        for (size_t j = 0; j < tail_len; j++) {
-            result[result_len++] = tail[j];
-        }
-        tail_len = 0;
     }
-    free(fmt);
-    free(tail);
 
+    char *result = malloc(result_parts_len * sizeof (char*) + 1);
+    size_t result_len = 0;
+    for (size_t i = 0; i < template.num_fmt_strings; i++) {
+        for (size_t j = 0; result_parts[i][j] != '\0'; j++) {
+            result[result_len++] = result_parts[i][j];
+        }
+        free(result_parts[i]);
+    }
     result[result_len] = '\0';
 
     return result;
@@ -282,8 +267,9 @@ int main(int argc, char *argv[argc + 1])
         printf("%zu\t%s\n", i, set->mime_type);
         printf("initialization: %s media: %s timeline_len: %zu\n", set->segment_template.initialization, set->segment_template.media, set->segment_template.timeline->len);
         struct URLTemplate media_template = parse_url_template(set->segment_template.media);
-        printf("media: %s %d\n", media_template.template, media_template.replacement_ids[1]);
-        printf("media: %s\n", url_template_format(set->segment_template.media, 1, 2, 3, 4));
+        char *media = url_template_format(media_template, 1, 2, 3, 4);
+        printf("media: %s\n", media);
+        free(media);
         for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
             struct SegmentTime *t = set->segment_template.timeline->items[j];
             printf("start: %d duration: %d count: %d\n", t->start, t->part_duration, t->part_count);
