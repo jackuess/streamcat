@@ -1,5 +1,3 @@
-#include <string.h>
-
 #include "http.h"
 #include "minunit.h"
 
