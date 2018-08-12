@@ -1,13 +1,21 @@
 #ifndef http_h_INCLUDED
 #define http_h_INCLUDED
 
-struct String {
+#include <stdbool.h>
+
+#include "curl.h"
+
+struct Response {
+    CURL *_curl;
+    bool ok;
+    char *effective_url;
+    long code;
     char *data;
-    size_t size;
+    size_t data_size;
 };
 
-void string_init(struct String *str);
-int http_get_as_string(struct String *dest, const char *url);
+struct Response http_get(const char *url);
+void response_free(struct Response *resp);
 
 #endif // http_h_INCLUDED
 

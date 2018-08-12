@@ -2,70 +2,80 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "curl.h"
-
 #include "http.h"
 #include "output.h"
 
-void string_init(struct String *str)
+void response_init_data(struct Response *resp)
 {
-    str->data = malloc(1);
-    str->data[0] = '\0';
-    str->size = 0;
+    resp->data = malloc(1);
+    resp->data[0] = '\0';
+    resp->data_size = 0;
 }
 
-static size_t append_to_string(void *data, size_t size, size_t nmemb, void *userp)
+static size_t response_append_data(void *data, size_t size, size_t nmemb, void *userp)
 {
     size_t realsize = size * nmemb;
-    struct String *buffer = (struct String *)userp;
+    struct Response *resp = (struct Response *)userp;
 
-    buffer->data = realloc(buffer->data, buffer->size + realsize + 1);
-    memcpy(&(buffer->data[buffer->size]), data, realsize);
-    buffer->size += realsize;
-    buffer->data[buffer->size] = '\0';
+    resp->data = realloc(resp->data, resp->data_size + realsize + 1);
+    memcpy(&(resp->data[resp->data_size]), data, realsize);
+    resp->data_size += realsize;
+    resp->data[resp->data_size] = '\0';
 
     return realsize;
 }
 
-int http_get_as_string(struct String *dest, const char *url)
+struct Response http_get(const char *url)
 {
-    CURL *curl = curl_easy_init();
     CURLcode res = CURLE_OK;
+    struct Response resp = {0};
+    resp._curl = curl_easy_init();
 
-    if (!curl) {
+    if (!resp._curl) {
         dbg_print("mpdcat", "Unable to init Curl\n");
         goto finally;
     }
 
-    if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, true))) {
+    if (CURLE_OK != (res = curl_easy_setopt(resp._curl, CURLOPT_FOLLOWLOCATION, true))) {
         dbg_print("mpdcat", "Unable to set FOLLOWLOCATION\n");
         goto finally;
     }
-    if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_URL, url))) {
+    if (CURLE_OK != (res = curl_easy_setopt(resp._curl, CURLOPT_URL, url))) {
         dbg_print("mpdcat", "Unable to set URL\n");
         goto finally;
     }
-    if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append_to_string))) {
+    if (CURLE_OK != (res = curl_easy_setopt(resp._curl, CURLOPT_WRITEFUNCTION, response_append_data))) {
         dbg_print("mpdcat", "Unable to set WRITEFUNCTION\n");
         goto finally;
     }
-    string_init(dest);
-    if (CURLE_OK != (res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, dest))) {
+    response_init_data(&resp);
+    if (CURLE_OK != (res = curl_easy_setopt(resp._curl, CURLOPT_WRITEDATA, &resp))) {
         dbg_print("mpdcat", "Unable to set WRITEDATA\n");
         goto finally;
     }
 
-    if (CURLE_OK != (res = curl_easy_perform(curl))) {
+    if (CURLE_OK != (res = curl_easy_perform(resp._curl))) {
         goto finally;
     }
+
+    curl_easy_getinfo(resp._curl, CURLINFO_RESPONSE_CODE, &resp.code);
+    curl_easy_getinfo(resp._curl, CURLINFO_EFFECTIVE_URL, &resp.effective_url);
 
     finally:
         if (res != CURLE_OK) {
             dbg_print("libcurl", "%s\n", curl_easy_strerror(res));
         }
-        if (curl) {
-            curl_easy_cleanup(curl);
-        }
 
-        return res == CURLE_OK;
+        resp.ok = (res == CURLE_OK);
+        return resp;
+}
+
+void response_free(struct Response *resp)
+{
+    if (resp->_curl) {
+         curl_easy_cleanup(resp->_curl);
+    }
+    if (resp->data) {
+        free(resp->data);
+    }
 }

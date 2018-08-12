@@ -266,17 +266,18 @@ int main(int argc, char *argv[argc + 1])
         return 1;
     }
 
-    struct String manifeststr;
+    struct Response resp;
     const char *url = argv[1];
     mxml_node_t *root;
     struct Vector *adaptation_sets;
 
     curl_global_init(0);
 
-    int ret = http_get_as_string(&manifeststr, url);
-    printf("%s", manifeststr.data);
+    resp = http_get(url);
+    printf("Code: %ld URL: %s\n", resp.code, resp.effective_url);
+    printf("%s", resp.data);
 
-    root = mxmlLoadString(NULL, manifeststr.data, MXML_OPAQUE_CALLBACK);
+    root = mxmlLoadString(NULL, resp.data, MXML_OPAQUE_CALLBACK);
     adaptation_sets = get_adaptation_sets(root);
 	for (size_t i = 0; i < adaptation_sets->len; i++) {
         struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
@@ -307,9 +308,9 @@ int main(int argc, char *argv[argc + 1])
     vector_free(adaptation_sets);
 
     mxmlDelete(root);
-    free(manifeststr.data);
+    response_free(&resp);
 
     curl_global_cleanup();
 
-    return ret ? 0 : 2;
+    return resp.ok ? 0 : 2;
 }
