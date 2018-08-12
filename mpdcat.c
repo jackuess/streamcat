@@ -172,9 +172,9 @@ void url_template_free(URLTemplate *template)
 }
 
 struct SegmentTime {
-    int start;
-    int part_duration;
-    int part_count;
+    long start;
+    long part_duration;
+    long part_count;
 };
 
 struct SegmentTemplate {
@@ -205,7 +205,7 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
     template.initialization = mxmlElementGetAttr(root, "initialization");
     template.media = mxmlElementGetAttr(root, "media");
 
-	int last_end = 0;
+	long last_end = 0;
     mxml_node_t *timeline = mxmlFindElement(root, root, "SegmentTimeline", NULL, NULL, MXML_DESCEND_FIRST);
     for (
         mxml_node_t *node = mxmlFindElement(timeline, timeline, "S", NULL, NULL, MXML_DESCEND_FIRST);
@@ -215,15 +215,15 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
         struct SegmentTime *t = malloc(sizeof (struct SegmentTime));
         const char *a;
 
-        t->part_duration = atoi(mxmlElementGetAttr(node, "d"));
+        t->part_duration = strtol(mxmlElementGetAttr(node, "d"), NULL, 10);
 
         if ((a = mxmlElementGetAttr(node, "t")) != NULL) {
-            t->start = atoi(a);
+            t->start = strtol(a, NULL, 10);
         } else {
             t->start = last_end;
         }
         if ((a = mxmlElementGetAttr(node, "r")) != NULL) {
-            t->part_count = atoi(a);
+            t->part_count = strtol(a, NULL, 10);
         } else {
             t->part_count = 1;
         }

@@ -15,13 +15,13 @@ int main(int argc, char *argv[argc+1])
 	int o;
 	int showinfo = 0;
 	int download = 1;
-	int stream_index = -1;
+	long stream_index = -1;
 	const char *url;
 
 	while ((o = getopt(argc, argv, "i:vI")) != -1) {
     	switch (o) {
         case 'i':
-        	stream_index = atoi(optarg);
+            stream_index = strtol(optarg, NULL, 10);
         	break;
     	case 'v':
         	showinfo = 1;
