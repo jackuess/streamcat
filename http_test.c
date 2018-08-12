@@ -5,24 +5,16 @@
 
 static char *test_urljoin()
 {
-    mu_assert(
-        "urljoin(\"http://foo.bar/\", \"baz\") != \"http://foo.bar/baz\"",
-        strcmp(urljoin("http://foo.bar/", "baz"), "http://foo.bar/baz") == 0
-    );
-    mu_assert(
-        "urljoin(\"http://foo.bar/foo/bar/foobar\", \"baz\") != \"http://foo.bar/foo/bar/baz\"",
-        strcmp(urljoin("http://foo.bar/foo/bar/foobar", "baz"), "http://foo.bar/foo/bar/baz") == 0
-    );
-    mu_assert(
-        "urljoin(\"http://foo.bar/foo/bar/foobar\", \"/baz\") != \"http://foo.bar/foo/bar/baz\"",
-        strcmp(urljoin("http://foo.bar/foo/bar/foobar", "/baz"), "http://foo.bar/foo/bar/baz") == 0
-    );
+    ASSERT_STR_EQ(urljoin("http://foo.bar/", "baz"), "http://foo.bar/baz");
+    ASSERT_STR_EQ(urljoin("http://foo.bar/foo/bar/foobar", "baz"), "http://foo.bar/foo/bar/baz");
+    ASSERT_STR_EQ(urljoin("http://foo.bar/foo/bar/foobar", "/baz"), "http://foo.bar/foo/bar/baz");
+    ASSERT_STR_EQ(urljoin("http://foo.bar/foo/bar/foobar", "/baz"), "http://foo.bar/foo/bar/baz");
 
-    return 0;
+    return NULL;
 }
 
 char *all_tests()
 {
-    mu_run_test(test_urljoin);
-    return 0;
+    RUN_TEST(test_urljoin);
+    return NULL;
 }
