@@ -46,7 +46,12 @@ URLTemplate *parse_url_template(const char *str)
                 } else {
                     if (!format_open) {
                         fmt[fmt_len++] = '%';
-                        fmt[fmt_len++] = 'd';
+                        if (replacement_tag == REPRESENTATION_ID) {
+                            fmt[fmt_len++] = 's';
+                        } else  {
+                            fmt[fmt_len++] = 'l';
+                            fmt[fmt_len++] = 'd';
+                        }
                     }
                     fmt[fmt_len++] = '\0';
 
@@ -106,11 +111,11 @@ URLTemplate *parse_url_template(const char *str)
     return template;
 }
 
-char *url_template_format(const URLTemplate *template, int representation_id, int number, int bandwidth, int time)
+char *url_template_format(const URLTemplate *template, const char *representation_id, long number, long bandwidth, long time)
 {
     char *result_parts[template->len];
     size_t result_parts_len = 0;
-    int *replacement = NULL;
+    long *replacement = NULL;
     struct URLTemplatePair *pair;
 
     for (size_t i = 0; i < template->len; i++) {
@@ -121,24 +126,27 @@ char *url_template_format(const URLTemplate *template, int representation_id, in
             result_parts[i] = malloc(sizeof(char*) * fmt_len + 1);
             strcpy(result_parts[i], pair->fmt_string);
         } else {
-            switch (pair->replacement_id) {
-            case REPRESENTATION_ID:
-                replacement = &representation_id;
-                break;
-            case NUMBER:
-                replacement = &number;
-                break;
-            case BANDWIDTH:
-                replacement = &bandwidth;
-                break;
-            case TIME:
-                replacement = &time;
-                break;
-            case _UNDEFINED:
-                *replacement = 0;
-                break;
+            if (pair->replacement_id == REPRESENTATION_ID) {
+                result_parts_len += asprintf(&result_parts[i], pair->fmt_string, representation_id);
+            } else {
+                switch (pair->replacement_id) {
+                case REPRESENTATION_ID:
+                    break;  // Handeled in above if
+                case NUMBER:
+                    replacement = &number;
+                    break;
+                case BANDWIDTH:
+                    replacement = &bandwidth;
+                    break;  // Handeled in above if
+                case TIME:
+                    replacement = &time;
+                    break;
+                case _UNDEFINED:
+                    *replacement = 0;
+                    break;
+                }
+                result_parts_len += asprintf(&result_parts[i], pair->fmt_string, *replacement);
             }
-            result_parts_len += asprintf(&result_parts[i], pair->fmt_string, *replacement);
         }
     }
 
@@ -177,6 +185,7 @@ struct SegmentTemplate {
 
 struct Representation {
     const char *id;
+    long bandwidth;
     struct SegmentTemplate segment_template;
     // TODO(Jacques): Allow Representation to override AdaptationSet.SegmentTemplate
 };
@@ -250,6 +259,7 @@ struct Vector *get_adaptation_sets(mxml_node_t *root)
         ) {
             struct Representation *r = malloc(sizeof (struct Representation));
             r->id = mxmlElementGetAttr(rnode, "id");
+            r->bandwidth = strtol(mxmlElementGetAttr(rnode, "bandwidth"), NULL, 10);
             set->representations = vector_append(set->representations, r);
         }
 
