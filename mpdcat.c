@@ -51,7 +51,7 @@ struct URLTemplate parse_url_template(const char *str)
                     }
                     fmt[fmt_len++] = '\0';
 
-                    template.fmt_strings[template.num_fmt_strings] = malloc(sizeof (char*) * strlen(fmt) + 1);
+                    template.fmt_strings[template.num_fmt_strings] = malloc(sizeof (char*) * fmt_len + 1);
                     strcpy(template.fmt_strings[template.num_fmt_strings++], fmt);
 
                     template.replacement_ids[num_replacement_ids++] = replacement_tag;
@@ -97,6 +97,7 @@ struct URLTemplate parse_url_template(const char *str)
         strcpy(template.fmt_strings[template.num_fmt_strings++], fmt);
     }
 
+    free(fmt);
 
     return template;
 }
@@ -280,8 +281,13 @@ int main(int argc, char *argv[argc + 1])
             printf("representation_id: %s\n", r->id);
         }
     }
+
+    for (size_t i = 0; i < adaptation_sets->len; i++) {
+        struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
+        vector_free(set->representations);
+        vector_free(set->segment_template.timeline);
+    }
     vector_free(adaptation_sets);
-    // TODO(Jacques): Free vectors: representations and timeline
 
     mxmlDelete(root);
     free(manifeststr.data);
