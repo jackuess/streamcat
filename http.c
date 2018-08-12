@@ -79,3 +79,36 @@ void response_free(struct Response *resp)
         free(resp->data);
     }
 }
+
+char *urljoin(const char *base, const char *relative)
+{
+    char *newurl;
+    size_t base_len;
+    size_t relative_start;
+    size_t relative_len = strlen(relative);
+    size_t lastchar;
+    size_t i;
+
+    for (base_len = strlen(base); base_len != 0; base_len--) {
+        if (base[base_len - 1] == '/') {
+            break;
+        }
+    }
+    for (relative_start = 0; relative_start < relative_len; relative_start++) {
+        if (relative[relative_start] != '/') {
+            break;
+        }
+    }
+
+    newurl = malloc(sizeof (newurl[0]) * (base_len + relative_len - relative_start) + 1);
+    for (i = 0; i < base_len; i++) {
+        newurl[i] = base[i];
+    }
+    lastchar = i;
+    for (i = relative_start; i < relative_len; i++) {
+        newurl[base_len + i - relative_start] = relative[i];
+    }
+    lastchar += i - relative_start;
+    newurl[lastchar] = '\0';
+    return newurl;
+}

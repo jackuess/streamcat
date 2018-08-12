@@ -17,5 +17,7 @@ struct Response {
 struct Response http_get(const char *url);
 void response_free(struct Response *resp);
 
+char *urljoin(const char *base, const char *relative);
+
 #endif // http_h_INCLUDED
 
