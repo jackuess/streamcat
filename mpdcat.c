@@ -21,23 +21,22 @@ enum URL_TEMPLATE_IDENTIFIERS {
 
 #define MAX_REPLACEMENT_IDS 128
 
-struct URLTemplate {
-    char *fmt_strings[MAX_REPLACEMENT_IDS];
-    size_t num_fmt_strings;
-    enum URL_TEMPLATE_IDENTIFIERS replacement_ids[MAX_REPLACEMENT_IDS];
+struct URLTemplatePair {
+    char *fmt_string;
+    enum URL_TEMPLATE_IDENTIFIERS replacement_id;
 };
 
-struct URLTemplate parse_url_template(const char *str)
+typedef struct Vector URLTemplate;
+
+URLTemplate *parse_url_template(const char *str)
 {
     bool tag_open = false;
     bool format_open = false;
     char *fmt = malloc(sizeof (char*) * strlen(str) + 1);
     size_t fmt_len = 0;
     enum URL_TEMPLATE_IDENTIFIERS replacement_tag = _UNDEFINED;
-    size_t num_replacement_ids = 0;
-    struct URLTemplate template = {0};
-    template.replacement_ids[0] = _UNDEFINED;
-    template.num_fmt_strings = 0;
+    URLTemplate *template = vector_init();
+    struct URLTemplatePair *pair;
 
     for (size_t i = 0; str[i] != '\0'; i++) {
         if (str[i] == '$') {
@@ -51,10 +50,13 @@ struct URLTemplate parse_url_template(const char *str)
                     }
                     fmt[fmt_len++] = '\0';
 
-                    template.fmt_strings[template.num_fmt_strings] = malloc(sizeof (char*) * fmt_len + 1);
-                    strcpy(template.fmt_strings[template.num_fmt_strings++], fmt);
+                    pair = malloc(sizeof (URLTemplate));
+                    pair->fmt_string = malloc(sizeof (char*) * fmt_len + 1);
+                    strcpy(pair->fmt_string, fmt);
+                    pair->replacement_id = replacement_tag;
 
-                    template.replacement_ids[num_replacement_ids++] = replacement_tag;
+                    template = vector_append(template, pair);
+
                     replacement_tag = _UNDEFINED;
                     fmt_len = 0;
                 }
@@ -90,11 +92,13 @@ struct URLTemplate parse_url_template(const char *str)
             fmt[fmt_len++] = str[i];
         }
     }
-    template.replacement_ids[num_replacement_ids] = _UNDEFINED;
     if (fmt_len > 0) {
         fmt[fmt_len++] = '\0';
-        template.fmt_strings[template.num_fmt_strings] = malloc(sizeof (char*) * strlen(fmt) + 1);
-        strcpy(template.fmt_strings[template.num_fmt_strings++], fmt);
+        pair = malloc(sizeof (URLTemplate));
+        pair->fmt_string = malloc(sizeof (char*) * fmt_len + 1);
+        strcpy(pair->fmt_string, fmt);
+        pair->replacement_id = _UNDEFINED;
+        template = vector_append(template, pair);
     }
 
     free(fmt);
@@ -102,20 +106,22 @@ struct URLTemplate parse_url_template(const char *str)
     return template;
 }
 
-char *url_template_format(const struct URLTemplate template, int representation_id, int number, int bandwidth, int time)
+char *url_template_format(const URLTemplate *template, int representation_id, int number, int bandwidth, int time)
 {
-    char *result_parts[template.num_fmt_strings];
+    char *result_parts[template->len];
     size_t result_parts_len = 0;
     int *replacement = NULL;
+    struct URLTemplatePair *pair;
 
-    for (size_t i = 0; i < template.num_fmt_strings; i++) {
-        if (template.replacement_ids[i] == _UNDEFINED) {
-            size_t fmt_len = strlen(template.fmt_strings[i]);
+    for (size_t i = 0; i < template->len; i++) {
+        pair = (struct URLTemplatePair*)template->items[i];
+        if (pair->replacement_id == _UNDEFINED) {
+            size_t fmt_len = strlen(pair->fmt_string);
             result_parts_len += fmt_len;
             result_parts[i] = malloc(sizeof(char*) * fmt_len + 1);
-            strcpy(result_parts[i], template.fmt_strings[i]);
+            strcpy(result_parts[i], pair->fmt_string);
         } else {
-            switch (template.replacement_ids[i]) {
+            switch (pair->replacement_id) {
             case REPRESENTATION_ID:
                 replacement = &representation_id;
                 break;
@@ -132,13 +138,13 @@ char *url_template_format(const struct URLTemplate template, int representation_
                 *replacement = 0;
                 break;
             }
-            result_parts_len += asprintf(&result_parts[i], template.fmt_strings[i], *replacement);
+            result_parts_len += asprintf(&result_parts[i], pair->fmt_string, *replacement);
         }
     }
 
     char *result = malloc(result_parts_len * sizeof (char*) + 1);
     size_t result_len = 0;
-    for (size_t i = 0; i < template.num_fmt_strings; i++) {
+    for (size_t i = 0; i < template->len; i++) {
         for (size_t j = 0; result_parts[i][j] != '\0'; j++) {
             result[result_len++] = result_parts[i][j];
         }
@@ -147,6 +153,14 @@ char *url_template_format(const struct URLTemplate template, int representation_
     result[result_len] = '\0';
 
     return result;
+}
+
+void url_template_free(URLTemplate *template)
+{
+    for (size_t j = 0; j < template->len; j++) {
+        free(((struct URLTemplatePair*)template->items[j])->fmt_string);
+    }
+    vector_free(template);
 }
 
 struct SegmentTime {
@@ -268,10 +282,13 @@ int main(int argc, char *argv[argc + 1])
         struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
         printf("%zu\t%s\n", i, set->mime_type);
         printf("initialization: %s media: %s timeline_len: %zu\n", set->segment_template.initialization, set->segment_template.media, set->segment_template.timeline->len);
-        struct URLTemplate media_template = parse_url_template(set->segment_template.media);
+        URLTemplate *media_template = parse_url_template(set->segment_template.media);
         char *media = url_template_format(media_template, 1, 2, 3, 4);
         printf("media: %s\n", media);
         free(media);
+
+        url_template_free(media_template);
+
         for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
             struct SegmentTime *t = set->segment_template.timeline->items[j];
             printf("start: %d duration: %d count: %d\n", t->start, t->part_duration, t->part_count);
