@@ -223,7 +223,7 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
             t->start = last_end;
         }
         if ((a = mxmlElementGetAttr(node, "r")) != NULL) {
-            t->part_count = strtol(a, NULL, 10);
+            t->part_count = strtol(a, NULL, 10) + 1;
         } else {
             t->part_count = 1;
         }
