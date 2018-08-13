@@ -280,33 +280,59 @@ int main(int argc, char *argv[argc + 1])
     const char *url = argv[1];
     mxml_node_t *root;
     struct Vector *adaptation_sets;
+    char *output_url;
 
     curl_global_init(0);
 
     resp = http_get(url);
-    printf("Code: %ld URL: %s\n", resp.code, resp.effective_url);
-    printf("%s", resp.data);
+    dbg_print("mpdcat", "Code: %ld URL: %s\n", resp.code, resp.effective_url);
+    dbg_print("mpdcat", "%s\n", resp.data);
 
     root = mxmlLoadString(NULL, resp.data, MXML_OPAQUE_CALLBACK);
     adaptation_sets = get_adaptation_sets(root);
 	for (size_t i = 0; i < adaptation_sets->len; i++) {
         struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
-        printf("%zu\t%s\n", i, set->mime_type);
-        printf("initialization: %s media: %s timeline_len: %zu\n", set->segment_template.initialization, set->segment_template.media, set->segment_template.timeline->len);
+        struct Representation *repr = set->representations->items[0];
+
+        dbg_print("mpdcat", "%zu\t%s\n", i, set->mime_type);
+        dbg_print("mpdcat", "initialization: %s media: %s timeline_len: %zu\n", set->segment_template.initialization, set->segment_template.media, set->segment_template.timeline->len);
+
+        URLTemplate *init_template = parse_url_template(set->segment_template.initialization);
         URLTemplate *media_template = parse_url_template(set->segment_template.media);
-        char *media = url_template_format(media_template, 1, 2, 3, 4);
-        printf("media: %s\n", media);
-        free(media);
+
+        char *relative_url = url_template_format(init_template, repr->id, 0, repr->bandwidth, 0);
+        output_url = urljoin(resp.effective_url, relative_url);
+        free(relative_url);
+        printf("%s\n", output_url);
+        free(output_url);
+        url_template_free(init_template);
+
+        size_t n = 0;  // TODO(Jacques): Parse startNumber
+        for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
+            struct SegmentTime *t = set->segment_template.timeline->items[j];
+            long time = t->start;
+            for (
+                long part_n = 0;
+                part_n < t->part_count;
+                time += t->part_duration, part_n++, n++
+            ) {
+                char *relative_url = url_template_format(media_template, repr->id, n, repr->bandwidth, time);
+                output_url = urljoin(resp.effective_url, relative_url);
+                free(relative_url);
+                printf("%s\n", output_url);
+                free(output_url);
+            }
+        }
 
         url_template_free(media_template);
 
         for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
             struct SegmentTime *t = set->segment_template.timeline->items[j];
-            printf("start: %d duration: %d count: %d\n", t->start, t->part_duration, t->part_count);
+            dbg_print("mpdcat", "start: %d duration: %d count: %d\n", t->start, t->part_duration, t->part_count);
         }
         for (size_t j = 0; j < set->representations->len; j++) {
             struct Representation *r = set->representations->items[j];
-            printf("representation_id: %s\n", r->id);
+            dbg_print("mpdcat", "representation_id: %s\n", r->id);
         }
     }
 
