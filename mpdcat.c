@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -269,6 +270,32 @@ struct Vector *get_adaptation_sets(mxml_node_t *root)
     return sets;
 }
 
+long get_media_url(char **url, const URLTemplate *template, const struct Vector *timeline, const struct Representation *repr, const char *base_url, long time)
+{
+    long start_number = 0;  // TODO(Jacques): Replace zero with arsed startNumber
+    size_t n = start_number;
+    long next = 0;
+
+    for (size_t i = 0; i < timeline->len; i++) {
+        struct SegmentTime *t = timeline->items[i];
+
+		if (time >= t->start && time < (t->start + (t->part_duration * t->part_count))) {
+            size_t offset = (size_t)floor((float)(time - t->start) / (float)t->part_duration);
+            long start = t->start + offset * t->part_duration;
+
+            char *relative_url = url_template_format(template, repr->id, n, repr->bandwidth, start);
+            *url = urljoin(base_url, relative_url);
+            free(relative_url);
+
+            next = start + t->part_duration;
+            break;
+		}
+		n += t->part_count;
+    }
+
+    return next;
+}
+
 int main(int argc, char *argv[argc + 1])
 {
     if (argc != 2) {
@@ -280,7 +307,6 @@ int main(int argc, char *argv[argc + 1])
     const char *url = argv[1];
     mxml_node_t *root;
     struct Vector *adaptation_sets;
-    char *output_url;
 
     curl_global_init(0);
 
@@ -290,51 +316,27 @@ int main(int argc, char *argv[argc + 1])
 
     root = mxmlLoadString(NULL, resp.data, MXML_OPAQUE_CALLBACK);
     adaptation_sets = get_adaptation_sets(root);
-	for (size_t i = 0; i < adaptation_sets->len; i++) {
-        struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
-        struct Representation *repr = set->representations->items[0];
+    struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[0];
+    dbg_print("mpdcat", "mime type: %s\n", set->mime_type);
 
-        dbg_print("mpdcat", "%zu\t%s\n", i, set->mime_type);
-        dbg_print("mpdcat", "initialization: %s media: %s timeline_len: %zu\n", set->segment_template.initialization, set->segment_template.media, set->segment_template.timeline->len);
+    URLTemplate *init_template = parse_url_template(set->segment_template.initialization);  // TODO(Jacques): Store template in set
+    URLTemplate *media_template = parse_url_template(set->segment_template.media);  // TODO(Jacques): Store template in set
+    struct Representation *repr = (struct Representation *)set->representations->items[0];
 
-        URLTemplate *init_template = parse_url_template(set->segment_template.initialization);
-        URLTemplate *media_template = parse_url_template(set->segment_template.media);
+    char *relative_url = url_template_format(init_template, repr->id, 0, repr->bandwidth, 0);
+    char *init_url = urljoin(resp.effective_url, relative_url);
+    free(relative_url);
+    printf("%s\n", init_url);
+    free(init_url);
+    url_template_free(init_template);
 
-        char *relative_url = url_template_format(init_template, repr->id, 0, repr->bandwidth, 0);
-        output_url = urljoin(resp.effective_url, relative_url);
-        free(relative_url);
+	char *output_url = NULL;
+	long start = 0;
+    while ((start = get_media_url(&output_url, media_template, set->segment_template.timeline, set->representations->items[0], resp.effective_url,  start))) {
         printf("%s\n", output_url);
         free(output_url);
-        url_template_free(init_template);
-
-        size_t n = 0;  // TODO(Jacques): Parse startNumber
-        for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
-            struct SegmentTime *t = set->segment_template.timeline->items[j];
-            long time = t->start;
-            for (
-                long part_n = 0;
-                part_n < t->part_count;
-                time += t->part_duration, part_n++, n++
-            ) {
-                char *relative_url = url_template_format(media_template, repr->id, n, repr->bandwidth, time);
-                output_url = urljoin(resp.effective_url, relative_url);
-                free(relative_url);
-                printf("%s\n", output_url);
-                free(output_url);
-            }
-        }
-
-        url_template_free(media_template);
-
-        for (size_t j = 0; j < set->segment_template.timeline->len; j++) {
-            struct SegmentTime *t = set->segment_template.timeline->items[j];
-            dbg_print("mpdcat", "start: %d duration: %d count: %d\n", t->start, t->part_duration, t->part_count);
-        }
-        for (size_t j = 0; j < set->representations->len; j++) {
-            struct Representation *r = set->representations->items[j];
-            dbg_print("mpdcat", "representation_id: %s\n", r->id);
-        }
     }
+    url_template_free(media_template);
 
     for (size_t i = 0; i < adaptation_sets->len; i++) {
         struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
