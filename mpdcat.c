@@ -172,6 +172,11 @@ void url_template_free(URLTemplate *template)
     vector_free(template);
 }
 
+struct MPD {
+    struct Vector *adaptation_sets;
+    mxml_node_t *_doc;
+};
+
 struct SegmentTime {
     long start;
     long part_duration;
@@ -185,16 +190,24 @@ struct SegmentTemplate {
 };
 
 struct Representation {
-    const char *id;
     long bandwidth;
+    const char *id;
+    const char *mime_type;
+    const char *base_url;
     struct SegmentTemplate segment_template;
-    // TODO(Jacques): Allow Representation to override AdaptationSet.SegmentTemplate
+    // SegmentBase
+    // SegmentList
 };
 
 struct AdaptationSet {
     const char *mime_type;
     struct SegmentTemplate segment_template;
     struct Vector *representations;
+};
+
+enum URL_TYPE {
+    INITIALIZATION_URL,
+    MEDIA_URL
 };
 
 struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
@@ -236,12 +249,15 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
     return template;
 }
 
-struct Vector *get_adaptation_sets(mxml_node_t *root)
+struct MPD *mpd_parse(const char *buffer)
 {
+    struct MPD *mpd = calloc(1, sizeof (struct MPD));
     const char *TAG_ADAPTATION_SET = "AdaptationSet";
     const char *TAG_REPRESENTATION = "Representation";
     struct AdaptationSet *set;
     struct Vector *sets = vector_init();
+
+    mxml_node_t *root = mxmlLoadString(NULL, buffer, MXML_OPAQUE_CALLBACK);
 
     for (
         mxml_node_t *anode = mxmlFindElement(root, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_DESCEND);
@@ -258,24 +274,91 @@ struct Vector *get_adaptation_sets(mxml_node_t *root)
             rnode != NULL;
             rnode = mxmlFindElement(rnode, anode, TAG_REPRESENTATION, NULL, NULL, MXML_DESCEND_FIRST)
         ) {
-            struct Representation *r = malloc(sizeof (struct Representation));
+            struct Representation *r = calloc(1, sizeof (struct Representation));
             r->id = mxmlElementGetAttr(rnode, "id");
             r->bandwidth = strtol(mxmlElementGetAttr(rnode, "bandwidth"), NULL, 10);
+            if ((r->mime_type = mxmlElementGetAttr(rnode, "mimeType")) == NULL) {
+                r->mime_type = set->mime_type;
+            }
+            mxml_node_t * t = mxmlFindElement(rnode, rnode, "SegmentTemplate", NULL, NULL, MXML_DESCEND_FIRST);
+            if (t == NULL) {
+                r->segment_template = set->segment_template;  // TODO(Jacques): Copy
+            } else {
+                r->segment_template = get_segment_template(t);
+            }
             set->representations = vector_append(set->representations, r);
         }
 
         sets = vector_append(sets, set);
     }
 
-    return sets;
+    mpd->adaptation_sets = sets;
+    mpd->_doc = root;
+    return mpd;
 }
 
-long get_media_url(char **url, const URLTemplate *template, const struct Vector *timeline, const struct Representation *repr, const char *base_url, long time)
+void representation_free(struct Representation *repr)
 {
-    long start_number = 0;  // TODO(Jacques): Replace zero with arsed startNumber
+    (void)repr;
+    // vector_free(repr->segment_template.timeline);
+}
+
+void adaptation_set_free(struct AdaptationSet *set) {
+    for (size_t i = 0; i < set->representations->len; i++) {
+        representation_free(set->representations->items[i]);
+    }
+    vector_free(set->segment_template.timeline);
+    vector_free(set->representations);
+}
+
+void mpd_free(struct MPD *mpd)
+{
+    for (size_t i = 0; i < mpd->adaptation_sets->len; i++) {
+        adaptation_set_free(mpd->adaptation_sets->items[i]);
+    }
+    vector_free(mpd->adaptation_sets);
+    mxmlDelete(mpd->_doc);
+    free(mpd);
+}
+
+const struct Representation **mpd_get_representations(struct MPD *mpd)
+{
+    size_t len = 0;
+
+    for (size_t i = 0; i < mpd->adaptation_sets->len; i++) {
+        len += ((struct AdaptationSet *)mpd->adaptation_sets->items[i])->representations->len;
+    }
+
+    const struct Representation **reprs = calloc((len + 1), sizeof reprs);
+    const struct Representation **r = reprs;
+    for (size_t i = 0; i < mpd->adaptation_sets->len; i++) {
+        struct AdaptationSet *set = mpd->adaptation_sets->items[i];
+        for (size_t j = 0; j < set->representations->len; j++) {
+            *r = set->representations->items[j];
+            r++;
+        }
+    }
+    r = NULL;
+
+    return reprs;
+}
+
+long mpd_get_url(char **url, const char *base_url, const struct Representation *repr, enum URL_TYPE url_type, long time)
+{
+    long start_number = 0;  // TODO(Jacques): Replace zero with parsed startNumber
     size_t n = start_number;
     long next = 0;
+    URLTemplate *template = NULL;  // TODO(Jacques): Store template in Representation
+    switch (url_type) {
+        case INITIALIZATION_URL:
+            template = parse_url_template(repr->segment_template.initialization);
+            break;
+        case MEDIA_URL:
+            template = parse_url_template(repr->segment_template.media);
+            break;
+    }
 
+    struct Vector *timeline = repr->segment_template.timeline;
     for (size_t i = 0; i < timeline->len; i++) {
         struct SegmentTime *t = timeline->items[i];
 
@@ -289,9 +372,10 @@ long get_media_url(char **url, const URLTemplate *template, const struct Vector 
 
             next = start + t->part_duration;
             break;
-		}
+        }
 		n += t->part_count;
     }
+    url_template_free(template);
 
     return next;
 }
@@ -305,8 +389,8 @@ int main(int argc, char *argv[argc + 1])
 
     struct Response resp;
     const char *url = argv[1];
-    mxml_node_t *root;
-    struct Vector *adaptation_sets;
+    struct MPD *mpd;
+    const struct Representation **representations;
 
     curl_global_init(0);
 
@@ -314,38 +398,25 @@ int main(int argc, char *argv[argc + 1])
     dbg_print("mpdcat", "Code: %ld URL: %s\n", resp.code, resp.effective_url);
     dbg_print("mpdcat", "%s\n", resp.data);
 
-    root = mxmlLoadString(NULL, resp.data, MXML_OPAQUE_CALLBACK);
-    adaptation_sets = get_adaptation_sets(root);
-    struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[0];
-    dbg_print("mpdcat", "mime type: %s\n", set->mime_type);
+    mpd = mpd_parse(resp.data);
+    representations = mpd_get_representations(mpd);
+    size_t num_representations = 0;
+    for (const struct Representation *r; (r = representations[num_representations]) != NULL; num_representations++) {
+        dbg_print("mpdcat", "%d\t%s\n", num_representations, r->mime_type);
+    }
 
-    URLTemplate *init_template = parse_url_template(set->segment_template.initialization);  // TODO(Jacques): Store template in set
-    URLTemplate *media_template = parse_url_template(set->segment_template.media);  // TODO(Jacques): Store template in set
-    struct Representation *repr = (struct Representation *)set->representations->items[0];
-
-    char *relative_url = url_template_format(init_template, repr->id, 0, repr->bandwidth, 0);
-    char *init_url = urljoin(resp.effective_url, relative_url);
-    free(relative_url);
-    printf("%s\n", init_url);
-    free(init_url);
-    url_template_free(init_template);
-
-	char *output_url = NULL;
-	long start = 0;
-    while ((start = get_media_url(&output_url, media_template, set->segment_template.timeline, set->representations->items[0], resp.effective_url,  start))) {
+    char *output_url;
+    mpd_get_url(&output_url, resp.effective_url, representations[0], INITIALIZATION_URL, 0);
+    printf("%s\n", output_url);
+    free(output_url);
+    long start = 0;
+    while ((start = mpd_get_url(&output_url, resp.effective_url, representations[0], MEDIA_URL, start))) {
         printf("%s\n", output_url);
         free(output_url);
     }
-    url_template_free(media_template);
 
-    for (size_t i = 0; i < adaptation_sets->len; i++) {
-        struct AdaptationSet *set = (struct AdaptationSet *)adaptation_sets->items[i];
-        vector_free(set->representations);
-        vector_free(set->segment_template.timeline);
-    }
-    vector_free(adaptation_sets);
-
-    mxmlDelete(root);
+    free(representations);
+    mpd_free(mpd);
     response_free(&resp);
 
     curl_global_cleanup();
