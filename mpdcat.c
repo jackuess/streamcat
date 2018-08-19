@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <curl.h>
+#include <curl/curl.h>
 #include <mxml.h>
 
 #include "http.h"

@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "curl.h"
+#include <curl/curl.h>
 
 struct Response {
     CURL *_curl;

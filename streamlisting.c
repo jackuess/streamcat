@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <curl.h>
+#include <curl/curl.h>
 
 #include "output.h"
 #include "streamlisting.h"
