@@ -12,10 +12,10 @@ endif
 streamcat: streamcat.c streamlisting.c output.c
 	$(CC) $(CFLAGS) -lcurl output.c streamlisting.c streamcat.c -o$@
 
-mpdcat: mpdcat.c http.h http.c vector2.h
-	$(CC) $(CFLAGS) -lcurl -lmxml http.c output.c mpdcat.c -o$@
+mpdcat: mpdcat.c mpd.h mpd.c http.h http.c vector2.h
+	$(CC) $(CFLAGS) -lcurl -lmxml mpd.c http.c output.c mpdcat.c -o$@
 
-test: http_test.c http.c http.h output.c
-	$(CC) $(CFLAGS) -lcurl http_test.c http.c output.c -o$@
+test: http_test.c http.c mpd_test.c http.h output.c minunit.h unittest.c
+	$(CC) $(CFLAGS) -lcurl -lmxml http_test.c http.c mpd_test.c mpd.c unittest.c output.c -o$@
 	./$@
 	rm $@
