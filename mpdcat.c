@@ -180,6 +180,7 @@ struct SegmentTime {
 };
 
 struct SegmentTemplate {
+    long start_number;
     const char *initialization;
     const char *media;
     struct SegmentTime *timeline;
@@ -210,11 +211,18 @@ enum URL_TYPE {
 struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
 {
     struct SegmentTemplate template = {0};
+    const char *a;
     template.timeline = vecnew(3, sizeof (template.timeline[0]));
 
     mxml_node_t *root = mxmlFindElement(adaptation_set, adaptation_set, "SegmentTemplate", NULL, NULL, MXML_DESCEND_FIRST);
     template.initialization = mxmlElementGetAttr(root, "initialization");
     template.media = mxmlElementGetAttr(root, "media");
+
+    if ((a = mxmlElementGetAttr(root, "startNumber")) != NULL) {
+        template.start_number = strtol(a, NULL, 10);
+    } else {
+        template.start_number = 1;
+    }
 
 	long last_end = 0;
     size_t i = 0;
@@ -226,7 +234,6 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
     ) {
         template.timeline = vecsetlen(template.timeline, i+1);
         struct SegmentTime *t = &template.timeline[i];
-        const char *a;
 
         t->part_duration = strtol(mxmlElementGetAttr(node, "d"), NULL, 10);
 
@@ -348,7 +355,7 @@ const struct Representation **mpd_get_representations(struct MPD *mpd)
 
 long mpd_get_url(char **url, const char *base_url, const struct Representation *repr, enum URL_TYPE url_type, long time)
 {
-    long start_number = 0;  // TODO(Jacques): Replace zero with parsed startNumber
+    long start_number = repr->segment_template.start_number;
     size_t n = start_number;
     long next = 0;
     URLTemplate template = NULL;  // TODO(Jacques): Store template in Representation
