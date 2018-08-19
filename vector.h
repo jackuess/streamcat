@@ -42,4 +42,3 @@ struct Vector *vector_append(struct Vector *vec, void *item)
 }
 
 #endif // vector_h_INCLUDED
-
