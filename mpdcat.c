@@ -183,6 +183,7 @@ struct SegmentTemplate {
     const char *initialization;
     const char *media;
     struct SegmentTime *timeline;
+    size_t timeline_refs;
 };
 
 struct Representation {
@@ -242,6 +243,7 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
 
         last_end = t->start + t->part_duration * t->part_count;
     }
+    template.timeline_refs = 1;
 
     return template;
 }
@@ -281,7 +283,8 @@ struct MPD *mpd_parse(const char *buffer)
             }
             mxml_node_t * t = mxmlFindElement(rnode, rnode, "SegmentTemplate", NULL, NULL, MXML_DESCEND_FIRST);
             if (t == NULL) {
-                r->segment_template = sets[i].segment_template;  // TODO(Jacques): Copy
+                r->segment_template = sets[i].segment_template;
+                sets[i].segment_template.timeline_refs++;
             } else {
                 r->segment_template = get_segment_template(t);
             }
@@ -296,15 +299,18 @@ struct MPD *mpd_parse(const char *buffer)
 
 void representation_free(struct Representation *repr)
 {
-    (void)repr;
-    // vecfree(repr->segment_template.timeline);
+    if (--(repr->segment_template.timeline_refs) == 0) {
+        vecfree(repr->segment_template.timeline);
+    }
 }
 
 void adaptation_set_free(struct AdaptationSet *set) {
     for (size_t i = 0; i < veclen(set->representations); i++) {
         representation_free(&set->representations[i]);
     }
-    vecfree(set->segment_template.timeline);
+    if (--(set->segment_template.timeline_refs) == 0) {
+        vecfree(set->segment_template.timeline);
+    }
     vecfree(set->representations);
 }
 
