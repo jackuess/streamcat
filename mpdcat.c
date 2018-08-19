@@ -134,7 +134,7 @@ char *url_template_format(const URLTemplate template, const char *representation
                     break;
                 case BANDWIDTH:
                     replacement = &bandwidth;
-                    break;  // Handeled in above if
+                    break;
                 case TIME:
                     replacement = &time;
                     break;
