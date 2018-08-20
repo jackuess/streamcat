@@ -15,14 +15,19 @@
                                           return message; \
                                       } \
                                     } while (0)
-#define ASSERT_STR_EQ(first, second) do { char *message = assert_str_eq(first, second); \
+#define ASSERT_STR_EQ(first, second) do { char *message = assert_str_eq(__FILE__, __LINE__, first, second); \
                                           ASSERT_TRUE(message, message == NULL); } while (0)
 
-static inline char *assert_str_eq(const char *first, const char *second)
+static inline char *assert_str_eq(const char *fn, int ln, const char *first, const char *second)
 {
-    const char* template = "\"%s\" != \"%s\"";
-    char *err = malloc(sizeof err * (strlen(first) + strlen(second) + strlen(template)));
-    sprintf(err, template, first, second);
+    const char* template = "%s:%d \"%s\" != \"%s\"";
+    char *err = malloc(1024);
+    int chars_needed = snprintf(err, 1024, template, fn, ln, first, second);
+    if (chars_needed >= 1024) {
+        free(err);
+        err = malloc(chars_needed + 1);
+        snprintf(err, 1024, template, fn, ln, first, second);
+    }
     return strcmp(first, second) == 0 ? NULL : err;
 }
 
