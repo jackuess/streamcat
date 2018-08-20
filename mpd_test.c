@@ -1,7 +1,7 @@
 #include "mpd.h"
 #include "minunit.h"
 
-extern char *test_mpd_manifest_parse()
+extern char *test_mpd_manifest_parse_time()
 {
     const char *manifest = "<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd\" profiles=\"urn:mpeg:dash:profile:isoff-live:2011\" type=\"static\" publishTime=\"2018-08-01T02:44:03Z\" mediaPresentationDuration=\"PT58M29.16S\" minBufferTime=\"PT1.5S\">"
                            "  <ProgramInformation>"
@@ -34,7 +34,7 @@ extern char *test_mpd_manifest_parse()
                            "          <S d=\"219840\"/>"
                            "        </SegmentTimeline>"
                            "      </SegmentTemplate>"
-                           "      <Representation id=\"repr8\" bandwidth=\"94733\" codecs=\"mp4a.40.5\" audioSamplingRate=\"24000\"/>"
+                           "      <Representation id=\"repr1\" bandwidth=\"94733\" codecs=\"mp4a.40.5\" audioSamplingRate=\"24000\"/>"
                            "    </AdaptationSet>"
                            "  </Period>"
                            "</MPD>";
@@ -73,6 +73,54 @@ extern char *test_mpd_manifest_parse()
     ASSERT_STR_EQ(url, "http://foo.bar/video_repr1_t3600000.m4s");
     next_start = mpd_get_url(&url, "http://foo.bar/", representations[1], MEDIA_URL, next_start);
     ASSERT_EQ(next_start, 0);
+
+    return NULL;
+}
+#include <assert.h>
+char *test_mpd_manifest_parse_numbers() {
+    const char *manifest = "<MPD mediaPresentationDuration=\"PT3509.160S\" minBufferTime=\"PT2.00S\" profiles=\"urn:hbbtv:dash:profile:isoff-live:2012,urn:mpeg:dash:profile:isoff-live:2011\" type=\"static\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"urn:mpeg:DASH:schema:MPD:2011 DASH-MPD.xsd\">"
+                           "  <BaseURL>./</BaseURL>"
+                           "  <Period>"
+                           "    <AdaptationSet contentType=\"video\" mimeType=\"video/mp4\" par=\"16:9\" subsegmentAlignment=\"true\" subsegmentStartsWithSAP=\"1\">"
+                           "      <SegmentTemplate initialization=\"$RepresentationID$/$RepresentationID$_00000.m4v\" media=\"$RepresentationID$/$RepresentationID$_$Number%05d$.m4v\" startNumber=\"1\" timescale=\"25000\">"
+                           "        <SegmentTimeline>"
+                           "          <S d=\"150000\" t=\"0\" />"
+                           "          <S d=\"150000\" r=\"2\" />"
+                           "          <S d=\"129000\" />"
+                           "        </SegmentTimeline>"
+                           "      </SegmentTemplate>"
+                           "      <Representation bandwidth=\"3228829\" codecs=\"avc1.64001f\" frameRate=\"25\" height=\"720\" id=\"repr1\" sar=\"1:1\" scanType=\"progressive\" width=\"1280\" />"
+                           "      <Representation bandwidth=\"1043832\" codecs=\"avc1.4d401e\" frameRate=\"25\" height=\"432\" id=\"repr2\" sar=\"1:1\" scanType=\"progressive\" width=\"768\" />"
+                           "      <Representation bandwidth=\"296852\" codecs=\"avc1.42c015\" frameRate=\"25\" height=\"288\" id=\"repr3\" sar=\"1:1\" scanType=\"progressive\" width=\"512\" />"
+                           "    </AdaptationSet>"
+                           "    <AdaptationSet contentType=\"audio\" mimeType=\"audio/mp4\" subsegmentAlignment=\"true\" subsegmentStartsWithSAP=\"1\">"
+                           "      <Accessibility schemeIdUri=\"urn:tva:metadata:cs:AudioPurposeCS:2007\" value=\"6\" />"
+                           "      <Role schemeIdUri=\"urn:mpeg:dash:role:2011\" value=\"main\" />"
+                           "      <SegmentTemplate initialization=\"$RepresentationID$/$RepresentationID$_00000.m4a\" media=\"$RepresentationID$/$RepresentationID$_$Number%05d$.m4a\" startNumber=\"1\" timescale=\"48000\">"
+                           "        <SegmentTimeline>"
+                           "          <S d=\"287744\" t=\"0\" />"
+                           "          <S d=\"288768\" r=\"2\" />"
+                           "          <S d=\"87552\" />"
+                           "        </SegmentTimeline>"
+                           "      </SegmentTemplate>"
+                           "      <Representation audioSamplingRate=\"48000\" bandwidth=\"97393\" codecs=\"mp4a.40.5\" id=\"repr1\">"
+                           "        <AudioChannelConfiguration schemeIdUri=\"urn:mpeg:dash:23003:3:audio_channel_configuration:2011\" value=\"2\" />"
+                           "      </Representation>"
+                           "      <Representation audioSamplingRate=\"48000\" bandwidth=\"97393\" codecs=\"mp4a.40.5\" id=\"repr2\">"
+                           "        <AudioChannelConfiguration schemeIdUri=\"urn:mpeg:dash:23003:3:audio_channel_configuration:2011\" value=\"2\" />"
+                           "      </Representation>"
+                           "    </AdaptationSet>"
+                           "  </Period>"
+                           "  </MPD>";
+    struct MPD *mpd = mpd_parse(manifest);
+    const struct Representation **representations = mpd_get_representations(mpd);
+
+    ASSERT_STR_EQ(representations[0]->mime_type, "video/mp4");
+    ASSERT_STR_EQ(representations[1]->mime_type, "video/mp4");
+    ASSERT_STR_EQ(representations[2]->mime_type, "video/mp4");
+    ASSERT_STR_EQ(representations[3]->mime_type, "audio/mp4");
+    ASSERT_STR_EQ(representations[4]->mime_type, "audio/mp4");
+    ASSERT_TRUE("Expected no more than 5 representations", representations[5] == NULL);
 
     return NULL;
 }

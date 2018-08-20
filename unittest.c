@@ -1,10 +1,12 @@
 #include "minunit.h"
 
 char *test_urljoin();
-char *test_mpd_manifest_parse();
+char *test_mpd_manifest_parse_time();
+char *test_mpd_manifest_parse_numbers();
 char* (*test_functions[]) () = {
     &test_urljoin,
-    &test_mpd_manifest_parse,
+    &test_mpd_manifest_parse_time,
+    &test_mpd_manifest_parse_numbers,
     NULL
 };
 

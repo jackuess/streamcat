@@ -242,7 +242,7 @@ struct MPD *mpd_parse(const char *buffer)
     for (
         mxml_node_t *anode = mxmlFindElement(root, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_DESCEND);
         anode != NULL;
-        anode = mxmlFindElement(anode, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_DESCEND)
+        anode = mxmlFindElement(anode, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_NO_DESCEND)
     ) {
         sets = vecsetlen(sets, i + 1);
         sets[i].representations = vecnew(4, sizeof (sets[i].representations[0]));
@@ -253,7 +253,7 @@ struct MPD *mpd_parse(const char *buffer)
         for (
             mxml_node_t *rnode = mxmlFindElement(anode, anode, TAG_REPRESENTATION, NULL, NULL, MXML_DESCEND_FIRST);
             rnode != NULL;
-            rnode = mxmlFindElement(rnode, anode, TAG_REPRESENTATION, NULL, NULL, MXML_DESCEND_FIRST)
+            rnode = mxmlFindElement(rnode, anode, TAG_REPRESENTATION, NULL, NULL, MXML_NO_DESCEND)
         ) {
             sets[i].representations = vecsetlen(sets[i].representations, j+1);
             struct Representation *r = &sets[i].representations[j++];
