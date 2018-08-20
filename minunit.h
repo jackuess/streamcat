@@ -32,8 +32,7 @@ static inline _Bool run_all_tests(char* (*test_functions[]) ()) {
     }
     if (result != NULL) {
         printf("%s\n", result);
-    }
-    else {
+    } else {
         printf("ALL TESTS PASSED\n");
     }
     printf("Tests run: %ld\n", tests_run);
