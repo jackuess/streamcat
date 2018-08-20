@@ -350,7 +350,7 @@ long mpd_get_url(char **url, const char *base_url, const struct Representation *
             size_t offset = (size_t)floor((float)(time - t->start) / (float)t->part_duration);
             long start = t->start + offset * t->part_duration;
 
-            char *relative_url = url_template_format(template, repr->id, n, repr->bandwidth, start);
+            char *relative_url = url_template_format(template, repr->id, n+offset, repr->bandwidth, start);
             *url = urljoin(base_url, relative_url);
             free(relative_url);
 

@@ -122,5 +122,29 @@ char *test_mpd_manifest_parse_numbers() {
     ASSERT_STR_EQ(representations[4]->mime_type, "audio/mp4");
     ASSERT_TRUE("Expected no more than 5 representations", representations[5] == NULL);
 
+    char *url;
+    long next_start = 0;
+
+    mpd_get_url(&url, "http://foo.bar/", representations[2], INITIALIZATION_URL, 0);
+    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00000.m4v");
+
+    next_start = mpd_get_url(&url, "http://foo.bar/", representations[2], MEDIA_URL, 0);
+    ASSERT_EQ(next_start, 150000);
+    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00001.m4v");
+    next_start = mpd_get_url(&url, "http://foo.bar/", representations[2], MEDIA_URL, next_start);
+    ASSERT_EQ(next_start, 300000);
+    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00002.m4v");
+    next_start = mpd_get_url(&url, "http://foo.bar/", representations[2], MEDIA_URL, next_start);
+    ASSERT_EQ(next_start, 450000);
+    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00003.m4v");
+    next_start = mpd_get_url(&url, "http://foo.bar/", representations[1], MEDIA_URL, next_start);
+    ASSERT_EQ(next_start, 600000);
+    ASSERT_STR_EQ(url, "http://foo.bar/repr2/repr2_00004.m4v");
+    next_start = mpd_get_url(&url, "http://foo.bar/", representations[0], MEDIA_URL, next_start);
+    ASSERT_EQ(next_start, 729000);
+    ASSERT_STR_EQ(url, "http://foo.bar/repr1/repr1_00005.m4v");
+    next_start = mpd_get_url(&url, "http://foo.bar/", representations[1], MEDIA_URL, next_start);
+    ASSERT_EQ(next_start, 0);
+
     return NULL;
 }
