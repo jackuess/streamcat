@@ -8,13 +8,14 @@
 
 #define ASSERT_TRUE(message, test) do { if (!(test)) return message; } while (0)
 #define ASSERT_EQ(first, second) do { if (first != second) { \
-                                          char *message = malloc(1024); \
-                                          const char *template ="%s:%d %s != %s"; \
-                                          int chars_needed = snprintf(message, 1024, template, __FILE__, __LINE__, #first, #second); \
-                                          if (chars_needed >= 1024) { \
+                                          const int message_cap = 128; \
+                                          char *message = malloc(message_cap); \
+                                          const char format[] = "%s:%d %s != %s"; \
+                                          int chars_needed = snprintf(message, message_cap, format, __FILE__, __LINE__, #first, #second); \
+                                          if (chars_needed >= message_cap) { \
                                               free(message); \
                                               message = malloc(chars_needed + 1); \
-                                              snprintf(message, chars_needed, template, __FILE__, __LINE__, #first, #second); \
+                                              snprintf(message, chars_needed+1, format, __FILE__, __LINE__, #first, #second); \
                                           } \
                                           return message; \
                                       } \
