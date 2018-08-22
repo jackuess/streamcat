@@ -142,8 +142,7 @@ int main(int argc, char *argv[argc + 1])
     }
 
     if (cmd.mode == PRINT_REPR_URLS) {
-        size_t r_index = 0;
-        fprintrepr_urls(stdout, effective_url, representations[r_index]);
+        fprintrepr_urls(stdout, effective_url, representations[cmd.repr_index]);
     }
 
     free(effective_url);
