@@ -134,6 +134,7 @@ int main(int argc, char *argv[argc+1]) {
         errline = __LINE__;
     }
 
+finally:
     avformat_close_input(&input_ctx.video_ctx);
     avformat_close_input(&input_ctx.audio_ctx);
     if (out_ctx && !(out_ctx->oformat->flags & AVFMT_NOFILE)) {
@@ -141,10 +142,8 @@ int main(int argc, char *argv[argc+1]) {
     }
     avformat_free_context(out_ctx);
 
-finally:
     if (errnum < 0 && errnum != AVERROR_EOF) {
-        char *buf = malloc(128);
-        printf("libavformat error: %s\n", av_make_error_string(buf, 128, errnum));
+        printf("libavformat error: %s\n", av_err2str(errnum));
         return errline;
     }
     return 0;
