@@ -5,30 +5,6 @@
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
 
-struct SplitContext {
-    AVFormatContext *audio_ctx;
-    AVFormatContext *video_ctx;
-};
-
-int split_context_init(struct SplitContext *ctx, const char *audio_filename, const char *video_filename) {
-    int errnum;
-
-    if ((errnum = avformat_open_input(&ctx->audio_ctx, audio_filename, NULL, NULL)) < 0) {
-        return errnum;
-    }
-    if ((errnum = avformat_find_stream_info(ctx->audio_ctx, NULL)) < 0) {
-        return errnum;
-    }
-    if ((errnum = avformat_open_input(&ctx->video_ctx, video_filename, NULL, NULL)) < 0) {
-        return errnum;
-    }
-    if ((errnum = avformat_find_stream_info(ctx->video_ctx, NULL)) < 0) {
-        return errnum;
-    }
-
-    return 0;
-}
-
 int add_stream(AVFormatContext *dst_ctx, AVStream *src_stream) {
     int errnum = 0;
     AVStream *dst_stream = NULL;
@@ -66,30 +42,11 @@ int copy_stream(AVFormatContext *dst, unsigned int dst_stream_index, AVFormatCon
     return errnum;
 }
 
-int main(int argc, char *argv[argc+1]) {
+int mux(const char *out_filename, unsigned int n_in_files, char *in_files[n_in_files]) {
     int errnum;
     unsigned errline = 0;
-    struct SplitContext input_ctx = {NULL, NULL};
     AVFormatContext *out_ctx = NULL;
-
-    if (argc != 4) {
-        printf("Usage: AUDIO_FILE VIDEO_FILE OUTPUT_FILE\n");
-        return 1;
-    }
-
-    const char *audio_filename = argv[1];
-    const char *video_filename = argv[2];
-    const char *out_filename = argv[3];
-
-    if ((errnum = split_context_init(&input_ctx, audio_filename, video_filename)) < 0) {
-        errline = __LINE__;
-        goto finally;
-    }
-    assert(input_ctx.video_ctx->nb_streams == 1);
-    assert(input_ctx.audio_ctx->nb_streams == 1);
-
-    av_dump_format(input_ctx.audio_ctx, 0, audio_filename, 0);
-    av_dump_format(input_ctx.video_ctx, 0, video_filename, 0);
+    AVFormatContext *in_ctx[n_in_files];
 
     if ((errnum = avformat_alloc_output_context2(&out_ctx, NULL, NULL, out_filename)) < 0) {
         errline = __LINE__;
@@ -100,13 +57,24 @@ int main(int argc, char *argv[argc+1]) {
         goto finally;
     }
 
-    if ((errnum = add_stream(out_ctx, input_ctx.audio_ctx->streams[0])) < 0) {
-        errline = __LINE__;
-        goto finally;
-    }
-    if ((errnum = add_stream(out_ctx, input_ctx.video_ctx->streams[0])) < 0) {
-        errline = __LINE__;
-        goto finally;
+    for (unsigned int i = 0; i < n_in_files; i++) {
+        in_ctx[i] = NULL;
+        if ((errnum = avformat_open_input(&in_ctx[i], in_files[i], NULL, NULL)) < 0) {
+            errline = __LINE__;
+            goto finally;
+        }
+        if ((errnum = avformat_find_stream_info(in_ctx[i], NULL)) < 0) {
+            errline = __LINE__;
+            goto finally;
+        }
+
+        assert(in_ctx[i]->nb_streams == 1);
+        av_dump_format(in_ctx[i], 0, in_files[i], 0);
+
+        if ((errnum = add_stream(out_ctx, in_ctx[i]->streams[0])) < 0) {
+            errline = __LINE__;
+            goto finally;
+        }
     }
 
     av_dump_format(out_ctx, 0, out_filename, 1);
@@ -123,11 +91,11 @@ int main(int argc, char *argv[argc+1]) {
         goto finally;
     }
 
-    if ((errnum = copy_stream(out_ctx, 0, input_ctx.audio_ctx, 0)) < 0) {
-        errline = __LINE__;
-    }
-    if ((errnum = copy_stream(out_ctx, 1, input_ctx.video_ctx, 0)) < 0) {
-        errline = __LINE__;
+    for (unsigned int i = 0; i < n_in_files; i++) {
+        if ((errnum = copy_stream(out_ctx, i, in_ctx[i], 0)) < 0) {
+            errline = __LINE__;
+        }
+        avformat_close_input(&in_ctx[i]);
     }
 
     if ((errnum = av_write_trailer(out_ctx)) < 0) {
@@ -135,16 +103,23 @@ int main(int argc, char *argv[argc+1]) {
     }
 
 finally:
-    avformat_close_input(&input_ctx.video_ctx);
-    avformat_close_input(&input_ctx.audio_ctx);
     if (out_ctx && !(out_ctx->oformat->flags & AVFMT_NOFILE)) {
         avio_closep(&out_ctx->pb);
     }
     avformat_free_context(out_ctx);
 
     if (errnum < 0 && errnum != AVERROR_EOF) {
-        printf("libavformat error: %s\n", av_err2str(errnum));
+        fprintf(stderr, "libavformat error: %s\n", av_err2str(errnum));
         return errline;
     }
     return 0;
+}
+
+int main(int argc, char *argv[argc+1]) {
+    if (argc < 3) {
+        printf("Usage: INPUT_FILE1 ... OUTPUT_FILE\n");
+        return 1;
+    }
+
+    return mux(argv[argc-1], argc-2, &argv[1]);
 }
