@@ -5,6 +5,8 @@
 #include <libavformat/avformat.h>
 #include <libavutil/error.h>
 
+#include "muxing.h"
+
 int add_stream(AVFormatContext *dst_ctx, AVStream *src_stream) {
     int errnum = 0;
     AVStream *dst_stream = NULL;
@@ -113,13 +115,4 @@ finally:
         return errline;
     }
     return 0;
-}
-
-int main(int argc, char *argv[argc+1]) {
-    if (argc < 3) {
-        printf("Usage: INPUT_FILE1 ... OUTPUT_FILE\n");
-        return 1;
-    }
-
-    return mux(argv[argc-1], argc-2, &argv[1]);
 }

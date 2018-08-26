@@ -12,11 +12,8 @@ endif
 streamcat: streamcat.c streamlisting.c output.c
 	$(CC) $(CFLAGS) -lcurl output.c streamlisting.c streamcat.c -o$@
 
-mpdcat: mpdcat.c mpd.h mpd.c http.h http.c vector2.h
-	$(CC) $(CFLAGS) -lcurl -lmxml mpd.c http.c output.c mpdcat.c -o$@
-
-muxer: muxer.c
-	$(CC) $(CFLAGS) -lavformat -lavcodec -lavutil muxer.c -o$@
+mpdcat: mpdcat.c muxing.c muxing.h mpd.h mpd.c http.h http.c vector2.h vector2.c
+	$(CC) $(CFLAGS) -lavcodec -lavformat -lavutil -lcurl -lmxml muxing.c mpd.c http.c output.c vector2.c mpdcat.c -o$@
 
 test: http_test.c http.c mpd_test.c http.h output.c minunit.h unittest.c
 	$(CC) $(CFLAGS) -lcurl -lmxml http_test.c http.c mpd_test.c mpd.c unittest.c output.c -o$@

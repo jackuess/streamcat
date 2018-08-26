@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 2
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,34 +8,48 @@
 #include <curl/curl.h>
 
 #include "http.h"
+#include "muxing.h"
 #include "mpd.h"
+#include "vector2.h"
+
+static const char tmp_template[] = "/tmp/mpdcatXXXXXX";
+#define TMP_LEN sizeof (tmp_template)/sizeof (tmp_template[0])
 
 enum MODE {
     LIST_REPRS,
-    PRINT_REPR_URLS
+    PRINT_REPR_URLS,
+    DOWNLOAD_REPR_URLS
 };
 
 struct CMD {
     _Bool verbose;
     enum MODE mode;
-    long repr_index;
+    long *repr_index;
     const char *manifesturl;
+    const char *output_file_name;
 };
 
 struct CMD parse_args(int argc, char *argv[argc+1]) {
     struct CMD cmd = {
-        .mode = LIST_REPRS
+        .mode = LIST_REPRS,
+        .repr_index = vecnew(4, sizeof (long))
     };
     int o;
+    size_t n_repr_index = 0;
 
-    while ((o = getopt(argc, argv, "i:v")) != -1) {
+    while ((o = getopt(argc, argv, "i:o:v")) != -1) {
         switch (o) {
         case 'i':
-            cmd.repr_index = strtol(optarg, NULL, 10);
-            cmd.mode = PRINT_REPR_URLS;
+            cmd.repr_index = vecsetlen(cmd.repr_index, ++n_repr_index);
+            cmd.repr_index[n_repr_index-1] = strtol(optarg, NULL, 10);
+            cmd.mode = cmd.mode != DOWNLOAD_REPR_URLS ? PRINT_REPR_URLS : cmd.mode;
             break;
         case 'v':
             cmd.verbose = true;
+            break;
+        case 'o':
+            cmd.output_file_name = optarg;
+            cmd.mode = DOWNLOAD_REPR_URLS;
             break;
         }
 	};
@@ -116,6 +130,55 @@ void fprintrepr_urls(FILE *f, const char *base_url, const struct Representation 
     }
 }
 
+static size_t curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
+    return fwrite(buffer, size, nmemb, (FILE*)userp);
+}
+
+int concat_representations(FILE *f, const char *base_url, const struct Representation *repr) {
+    CURL *curl_handle = curl_easy_init();
+    CURLcode res = CURLE_OK;
+    char *url;
+    long start = 0;
+
+    if (!curl_handle) {
+        goto finally;
+    }
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, curl_write_data))) {
+        goto finally;
+    }
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)f))) {
+        goto finally;
+    }
+
+    mpd_get_url(&url, base_url, repr, INITIALIZATION_URL, start);
+    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
+        goto finally;
+    }
+    if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
+        goto finally;
+    }
+    free(url);
+    while ((start = mpd_get_url(&url, base_url, repr, MEDIA_URL, start))) {
+        if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
+            goto finally;
+        }
+        if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
+            goto finally;
+        }
+        free(url);
+	}
+
+    finally:
+        if (res != CURLE_OK) {
+            fprintf(stderr, "(libcurl): %s\n", curl_easy_strerror(res));
+        }
+        if (curl_handle) {
+            curl_easy_cleanup(curl_handle);
+        }
+        return res;
+}
+
+
 int main(int argc, char *argv[argc + 1])
 {
     struct CMD cmd = parse_args(argc, argv);
@@ -142,9 +205,43 @@ int main(int argc, char *argv[argc + 1])
     }
 
     if (cmd.mode == PRINT_REPR_URLS) {
-        fprintrepr_urls(stdout, effective_url, representations[cmd.repr_index]);
+        for (size_t i = 0; i < veclen(cmd.repr_index); i++) {
+            fprintrepr_urls(stdout, effective_url, representations[cmd.repr_index[i]]);
+        }
+    } else if (cmd.mode == DOWNLOAD_REPR_URLS) {
+        unsigned int n_files = (unsigned int)veclen(cmd.repr_index);
+        char *file_names[n_files];
+        for (unsigned int i = 0; i < n_files; i++) {
+            file_names[i] = malloc(TMP_LEN);
+            strncpy(file_names[i], tmp_template, TMP_LEN);
+            int fd = mkstemp(file_names[i]);
+            if (fd < 0) {
+                fprintf(stderr, "Could not create tempfile\n");
+                success = false;
+                goto finally;
+            }
+            close(fd);
+            FILE *f = fopen(file_names[i], "w+");
+
+            if (concat_representations(f, effective_url, representations[cmd.repr_index[i]]) != CURLE_OK) {
+                fprintf(stderr, "Could not download index %ld\n", cmd.repr_index[i]);
+                success = false;
+                n_files = i;
+                break;
+            }
+            fclose(f);
+        }
+
+        mux(cmd.output_file_name, n_files, file_names);
+
+        for (size_t i = 0; i < n_files; i++) {
+            unlink(file_names[i]);
+            free(file_names[i]);
+        }
     }
 
+finally:
+    vecfree(cmd.repr_index);
     free(effective_url);
     free(representations);
     mpd_free(mpd);
