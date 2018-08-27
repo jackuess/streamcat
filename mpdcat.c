@@ -179,8 +179,8 @@ int concat_representations(FILE *f, const char *base_url, const struct Represent
 }
 
 int cmp_repr(const void *first, const void *second) {
-    const struct Representation *rfirst = *(const struct Representation **)first;
-    const struct Representation *rsecond = *(const struct Representation **)second;
+    const struct Representation *rfirst = first;
+    const struct Representation *rsecond = second;
 
     int mimetype_diff = strcmp(rfirst->mime_type, rsecond->mime_type);
     if (mimetype_diff != 0) {
@@ -213,24 +213,22 @@ int main(int argc, char *argv[argc + 1])
         return 2;
     }
 
-    const struct Representation **representations = mpd_get_representations(mpd);
-    size_t num_representations;
-    // TODO(Jacques): Let mpd_get_representations return len, so we don't have to count it here
-    for (num_representations = 0; representations[num_representations] != NULL; num_representations++) {}
+    struct Representation *representations = NULL;
+    size_t num_representations = mpd_get_representations(&representations, mpd);
 
     qsort(representations, num_representations, sizeof (representations[0]), &cmp_repr);
 
     for (size_t i = 0; i < num_representations; i++) {
         if (cmd.verbose) {
-            fprintrepr(stderr, i, representations[i]);
+            fprintrepr(stderr, i, &representations[i]);
         } else if (cmd.mode == LIST_REPRS) {
-            fprintrepr(stdout, i, representations[i]);
+            fprintrepr(stdout, i, &representations[i]);
         }
     }
 
     if (cmd.mode == PRINT_REPR_URLS) {
         for (size_t i = 0; i < veclen(cmd.repr_index); i++) {
-            fprintrepr_urls(stdout, effective_url, representations[cmd.repr_index[i]]);
+            fprintrepr_urls(stdout, effective_url, &representations[cmd.repr_index[i]]);
         }
     } else if (cmd.mode == DOWNLOAD_REPR_URLS) {
         unsigned int n_files = (unsigned int)veclen(cmd.repr_index);
@@ -247,7 +245,7 @@ int main(int argc, char *argv[argc + 1])
             close(fd);
             FILE *f = fopen(file_names[i], "w+");
 
-            if (concat_representations(f, effective_url, representations[cmd.repr_index[i]]) != CURLE_OK) {
+            if (concat_representations(f, effective_url, &representations[cmd.repr_index[i]]) != CURLE_OK) {
                 fprintf(stderr, "Could not download index %ld\n", cmd.repr_index[i]);
                 success = false;
                 n_files = i;

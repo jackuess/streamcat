@@ -30,7 +30,7 @@ enum URL_TYPE {
 
 struct MPD *mpd_parse(const char*buffer);
 void mpd_free(struct MPD *mpd);
-const struct Representation **mpd_get_representations(const struct MPD *mpd);
+size_t mpd_get_representations(struct Representation **repr, const struct MPD *mpd);
 long mpd_get_url(char **url, const char *base_url, const struct Representation *repr, enum URL_TYPE url_type, long time);
 
 #endif // mpd_h_INCLUDED

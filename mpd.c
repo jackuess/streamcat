@@ -305,26 +305,24 @@ void mpd_free(struct MPD *mpd)
     free(mpd);
 }
 
-const struct Representation **mpd_get_representations(const struct MPD *mpd)
-{
+size_t mpd_get_representations(struct Representation **ret, const struct MPD *mpd) {
     size_t len = 0;
 
     for (size_t i = 0; i < veclen(mpd->adaptation_sets); i++) {
         len += veclen(mpd->adaptation_sets[i].representations);
     }
 
-    const struct Representation **reprs = calloc((len + 1), sizeof reprs);
-    const struct Representation **r = reprs;
+    struct Representation *repr = calloc(len, sizeof (repr[0]));
+    *ret = repr;
     for (size_t i = 0; i < veclen(mpd->adaptation_sets); i++) {
         struct AdaptationSet *set = &mpd->adaptation_sets[i];
         for (size_t j = 0; j < veclen(set->representations); j++) {
-            *r = &set->representations[j];
-            r++;
+            *repr = set->representations[j];
+            repr++;
         }
     }
-    r = NULL;
 
-    return reprs;
+    return len;
 }
 
 long mpd_get_url(char **url, const char *base_url, const struct Representation *repr, enum URL_TYPE url_type, long time)
