@@ -178,6 +178,25 @@ int concat_representations(FILE *f, const char *base_url, const struct Represent
         return res;
 }
 
+int cmp_repr(const void *first, const void *second) {
+    const struct Representation *rfirst = *(const struct Representation **)first;
+    const struct Representation *rsecond = *(const struct Representation **)second;
+
+    int mimetype_diff = strcmp(rfirst->mime_type, rsecond->mime_type);
+    if (mimetype_diff != 0) {
+        return mimetype_diff;
+    }
+
+    long bandwidth_diff = rfirst->bandwidth - rsecond->bandwidth;
+    if (bandwidth_diff < 0) {
+        return -1;
+    } else if (bandwidth_diff > 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+
+}
 
 int main(int argc, char *argv[argc + 1])
 {
@@ -196,11 +215,16 @@ int main(int argc, char *argv[argc + 1])
 
     const struct Representation **representations = mpd_get_representations(mpd);
     size_t num_representations;
-    for (num_representations = 0; representations[num_representations] != NULL; num_representations++) {
+    // TODO(Jacques): Let mpd_get_representations return len, so we don't have to count it here
+    for (num_representations = 0; representations[num_representations] != NULL; num_representations++) {}
+
+    qsort(representations, num_representations, sizeof (representations[0]), &cmp_repr);
+
+    for (size_t i = 0; i < num_representations; i++) {
         if (cmd.verbose) {
-            fprintrepr(stderr, num_representations, representations[num_representations]);
+            fprintrepr(stderr, i, representations[i]);
         } else if (cmd.mode == LIST_REPRS) {
-            fprintrepr(stdout, num_representations, representations[num_representations]);
+            fprintrepr(stdout, i, representations[i]);
         }
     }
 
