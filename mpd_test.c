@@ -54,6 +54,10 @@ extern char *test_mpd_manifest_parse_time()
     char *url;
     long next_start = 0;
 
+    for (size_t i = 0; i < n_representations; i++) {
+        ASSERT_EQ(mpd_get_url_count(&representations[i]), 5);
+    }
+
     mpd_get_url(&url, "http://foo.bar/", &representations[3], INITIALIZATION_URL, 0);
     ASSERT_STR_EQ(url, "http://foo.bar/video_repr4_init.m4s");
 
@@ -126,6 +130,10 @@ char *test_mpd_manifest_parse_numbers() {
 
     char *url;
     long next_start = 0;
+
+    for (size_t i = 0; i < n_representations; i++) {
+        ASSERT_EQ(mpd_get_url_count(&representations[i]), 5);
+    }
 
     mpd_get_url(&url, "http://foo.bar/", &representations[2], INITIALIZATION_URL, 0);
     ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00000.m4v");

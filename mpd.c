@@ -324,6 +324,16 @@ size_t mpd_get_representations(struct Representation **ret, const struct MPD *mp
     return len;
 }
 
+size_t mpd_get_url_count(const struct Representation *repr) {
+    size_t count = 0;
+
+    for (size_t i = 0; i < veclen(repr->segment_template.timeline); i++) {
+        count += repr->segment_template.timeline[i].part_count;
+    }
+
+    return count;
+}
+
 long mpd_get_url(char **url, const char *base_url, const struct Representation *repr, enum URL_TYPE url_type, long time)
 {
     long start_number = repr->segment_template.start_number;

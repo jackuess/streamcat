@@ -71,15 +71,12 @@ int mux(const char *out_filename, unsigned int n_in_files, char *in_files[n_in_f
         }
 
         assert(in_ctx[i]->nb_streams == 1);
-        av_dump_format(in_ctx[i], 0, in_files[i], 0);
 
         if ((errnum = add_stream(out_ctx, in_ctx[i]->streams[0])) < 0) {
             errline = __LINE__;
             goto finally;
         }
     }
-
-    av_dump_format(out_ctx, 0, out_filename, 1);
 
     if (!(out_ctx->oformat->flags & AVFMT_NOFILE)) {
         if ((errnum = avio_open(&out_ctx->pb, out_filename, AVIO_FLAG_WRITE)) < 0) {

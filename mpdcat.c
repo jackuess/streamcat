@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,11 @@
 #include "muxing.h"
 #include "mpd.h"
 #include "vector2.h"
+
+#define ANSI_BG_GREEN "\033[42m"
+#define ANSI_BG_BLUE "\033[44m"
+#define ANSI_FG_BLACK "\033[30m"
+#define ANSI_RESET "\033[0m\n"
 
 static const char tmp_template[] = "/tmp/mpdcatXXXXXX";
 #define TMP_LEN sizeof (tmp_template)/sizeof (tmp_template[0])
@@ -134,11 +140,14 @@ static size_t curl_write_data(void *buffer, size_t size, size_t nmemb, void *use
     return fwrite(buffer, size, nmemb, (FILE*)userp);
 }
 
-int concat_representations(FILE *f, const char *base_url, const struct Representation *repr) {
+int concat_representations(FILE *f, const char *base_url, const struct Representation *repr,
+                           void(*on_part_downloaded)(size_t n_parts_total, size_t n_parts, void* userp),
+                           void *userp) {
     CURL *curl_handle = curl_easy_init();
     CURLcode res = CURLE_OK;
     char *url;
     long start = 0;
+    size_t n_parts_downloaded = 0;
 
     if (!curl_handle) {
         goto finally;
@@ -158,6 +167,7 @@ int concat_representations(FILE *f, const char *base_url, const struct Represent
         goto finally;
     }
     free(url);
+    size_t n_parts_total = mpd_get_url_count(repr);
     while ((start = mpd_get_url(&url, base_url, repr, MEDIA_URL, start))) {
         if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
             goto finally;
@@ -165,8 +175,11 @@ int concat_representations(FILE *f, const char *base_url, const struct Represent
         if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
             goto finally;
         }
+        if (on_part_downloaded) {
+            (*on_part_downloaded)(n_parts_total, ++n_parts_downloaded, userp);
+        }
         free(url);
-	}
+    }
 
     finally:
         if (res != CURLE_OK) {
@@ -196,6 +209,26 @@ int cmp_repr(const void *first, const void *second) {
         return 0;
     }
 
+}
+
+struct ProgressMeta {
+    const char *ansi_color_fg;
+    const char *ansi_color_bg;
+    char *progress_bar;
+};
+
+void print_progress(size_t n_parts_total, size_t n_parts, void *userp) {
+    struct ProgressMeta *meta = userp;
+    size_t bar_size = strlen(meta->progress_bar);
+    size_t curr_pos = n_parts * bar_size / n_parts_total;
+    size_t prev_pos = (n_parts - 1) * bar_size / n_parts_total;
+
+    if (curr_pos > prev_pos) {
+        fprintf(stderr, "%s%s%c", meta->ansi_color_fg, meta->ansi_color_bg, meta->progress_bar[curr_pos - 1]);
+    }
+    if (n_parts == n_parts_total) {
+        fprintf(stderr, ANSI_RESET);
+    }
 }
 
 int main(int argc, char *argv[argc + 1])
@@ -233,6 +266,14 @@ int main(int argc, char *argv[argc + 1])
     } else if (cmd.mode == DOWNLOAD_REPR_URLS) {
         unsigned int n_files = (unsigned int)veclen(cmd.repr_index);
         char *file_names[n_files];
+        char bandwidthstr[14];
+        struct winsize ws;
+        ioctl(STDERR_FILENO, TIOCGWINSZ, &ws);
+        struct ProgressMeta meta;
+        meta.ansi_color_fg = ANSI_FG_BLACK;
+        meta.progress_bar = malloc(ws.ws_col + 1);
+        meta.progress_bar[ws.ws_col] = '\0';
+
         for (unsigned int i = 0; i < n_files; i++) {
             file_names[i] = malloc(TMP_LEN);
             strncpy(file_names[i], tmp_template, TMP_LEN);
@@ -245,7 +286,20 @@ int main(int argc, char *argv[argc + 1])
             close(fd);
             FILE *f = fopen(file_names[i], "w+");
 
-            if (concat_representations(f, effective_url, &representations[cmd.repr_index[i]]) != CURLE_OK) {
+            struct Representation *repr = &representations[cmd.repr_index[i]];
+
+            if (strcmp(repr->mime_type, "audio/mp4") == 0) {
+                meta.ansi_color_bg = ANSI_BG_BLUE;
+            } else {
+                meta.ansi_color_bg = ANSI_BG_GREEN;
+            }
+            formatbandwidth(bandwidthstr, repr->bandwidth);
+            snprintf(meta.progress_bar, ws.ws_col + 1, "%s %s downloaded to %s", repr->mime_type, bandwidthstr, file_names[i]);
+            for (size_t j = strlen(meta.progress_bar); j < ws.ws_col; j++) {
+                meta.progress_bar[j] = ' ';
+            }
+
+            if (concat_representations(f, effective_url, repr, &print_progress, &meta) != CURLE_OK) {
                 fprintf(stderr, "Could not download index %ld\n", cmd.repr_index[i]);
                 success = false;
                 n_files = i;
@@ -253,6 +307,7 @@ int main(int argc, char *argv[argc + 1])
             }
             fclose(f);
         }
+        free(meta.progress_bar);
 
         mux(cmd.output_file_name, n_files, file_names);
 
