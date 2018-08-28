@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 
-#include <math.h>
 #include <stdbool.h>
 
 #include <mxml.h>
@@ -345,7 +344,7 @@ long mpd_get_url(char **url, const char *base_url, const struct Representation *
         struct SegmentTime *t = &timeline[i];
 
 		if (time >= t->start && time < (t->start + (t->part_duration * t->part_count))) {
-            size_t offset = (size_t)floor((float)(time - t->start) / (float)t->part_duration);
+            size_t offset = (time - t->start) / t->part_duration;
             long start = t->start + offset * t->part_duration;
 
             char *relative_url = url_template_format(template, repr->id, n+offset, repr->bandwidth, start);
