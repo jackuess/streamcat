@@ -41,14 +41,13 @@ struct CMD parse_args(int argc, char *argv[argc+1]) {
         .repr_index = vecnew(4, sizeof (long))
     };
     int o;
-    size_t n_repr_index = 0;
 
     while ((o = getopt(argc, argv, "i:o:v")) != -1) {
         switch (o) {
         case 'i':
-            cmd.repr_index = vecsetlen(cmd.repr_index, ++n_repr_index);
-            cmd.repr_index[n_repr_index-1] = strtol(optarg, NULL, 10);
             cmd.mode = cmd.mode != DOWNLOAD_REPR_URLS ? PRINT_REPR_URLS : cmd.mode;
+            long *repr_index = VECAPPEND(&cmd.repr_index, NULL);
+            *repr_index = strtol(optarg, NULL, 10);
             break;
         case 'v':
             cmd.verbose = true;

@@ -31,7 +31,6 @@ URLTemplate parse_url_template(const char *str)
     size_t fmt_len = 0;
     enum URL_TEMPLATE_IDENTIFIERS replacement_tag = _UNDEFINED;
     URLTemplate template = vecnew(1, sizeof (template[0]));
-    size_t n_pairs = 0;
 
     for (size_t i = 0; str[i] != '\0'; i++) {
         if (str[i] == '$') {
@@ -50,11 +49,10 @@ URLTemplate parse_url_template(const char *str)
                     }
                     fmt[fmt_len++] = '\0';
 
-                    template = vecsetlen(template, n_pairs+1);
-                    template[n_pairs].fmt_string = malloc(sizeof (char*) * fmt_len + 1);
-                    strcpy(template[n_pairs].fmt_string, fmt);
-                    template[n_pairs].replacement_id = replacement_tag;
-                    n_pairs++;
+                    URLTemplate new_template = VECAPPEND(&template, NULL);
+                    new_template->fmt_string = malloc(sizeof (char*) * fmt_len + 1);
+                    strcpy(new_template->fmt_string, fmt);
+                    new_template->replacement_id = replacement_tag;
 
                     replacement_tag = _UNDEFINED;
                     fmt_len = 0;
@@ -93,10 +91,10 @@ URLTemplate parse_url_template(const char *str)
     }
     if (fmt_len > 0) {
         fmt[fmt_len++] = '\0';
-        template = vecsetlen(template, n_pairs+1);
-        template[n_pairs].fmt_string = malloc(sizeof (char*) * fmt_len + 1);
-        strcpy(template[n_pairs].fmt_string, fmt);
-        template[n_pairs].replacement_id = _UNDEFINED;
+        URLTemplate new_template = VECAPPEND(&template, NULL);
+        new_template->fmt_string = malloc(sizeof (char*) * fmt_len + 1);
+        strcpy(new_template->fmt_string, fmt);
+        new_template->replacement_id = _UNDEFINED;
     }
 
     free(fmt);
@@ -198,15 +196,13 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
     }
 
 	long last_end = 0;
-    size_t i = 0;
     mxml_node_t *timeline = mxmlFindElement(root, root, "SegmentTimeline", NULL, NULL, MXML_DESCEND_FIRST);
     for (
         mxml_node_t *node = mxmlFindElement(timeline, timeline, "S", NULL, NULL, MXML_DESCEND_FIRST);
         node != NULL;
-        node = mxmlFindElement(node, timeline, "S", NULL, NULL, MXML_DESCEND_FIRST), i++
+        node = mxmlFindElement(node, timeline, "S", NULL, NULL, MXML_DESCEND_FIRST)
     ) {
-        template.timeline = vecsetlen(template.timeline, i+1);
-        struct SegmentTime *t = &template.timeline[i];
+        struct SegmentTime *t = VECAPPEND(&template.timeline, NULL);
 
         t->part_duration = strtol(mxmlElementGetAttr(node, "d"), NULL, 10);
 
@@ -234,7 +230,6 @@ struct MPD *mpd_parse(const char *buffer)
     const char *TAG_ADAPTATION_SET = "AdaptationSet";
     const char *TAG_REPRESENTATION = "Representation";
     struct AdaptationSet *sets = vecnew(1, sizeof (struct AdaptationSet));
-    size_t i = 0;
 
     mxml_node_t *root = mxmlLoadString(NULL, buffer, MXML_OPAQUE_CALLBACK);
 
@@ -243,33 +238,30 @@ struct MPD *mpd_parse(const char *buffer)
         anode != NULL;
         anode = mxmlFindElement(anode, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_NO_DESCEND)
     ) {
-        sets = vecsetlen(sets, i + 1);
-        sets[i].representations = vecnew(4, sizeof (sets[i].representations[0]));
-        sets[i].mime_type = mxmlElementGetAttr(anode, "mimeType");
-        sets[i].segment_template = get_segment_template(anode);
+        struct AdaptationSet *new_set = VECAPPEND(&sets, NULL);
+        new_set->representations = vecnew(4, sizeof (new_set->representations[0]));
+        new_set->mime_type = mxmlElementGetAttr(anode, "mimeType");
+        new_set->segment_template = get_segment_template(anode);
 
-        size_t j = 0;
         for (
             mxml_node_t *rnode = mxmlFindElement(anode, anode, TAG_REPRESENTATION, NULL, NULL, MXML_DESCEND_FIRST);
             rnode != NULL;
             rnode = mxmlFindElement(rnode, anode, TAG_REPRESENTATION, NULL, NULL, MXML_NO_DESCEND)
         ) {
-            sets[i].representations = vecsetlen(sets[i].representations, j+1);
-            struct Representation *r = &sets[i].representations[j++];
+            struct Representation *r = VECAPPEND(&new_set->representations, NULL);
             r->id = mxmlElementGetAttr(rnode, "id");
             r->bandwidth = strtol(mxmlElementGetAttr(rnode, "bandwidth"), NULL, 10);
             if ((r->mime_type = mxmlElementGetAttr(rnode, "mimeType")) == NULL) {
-                r->mime_type = sets[i].mime_type;
+                r->mime_type = new_set->mime_type;
             }
             mxml_node_t * t = mxmlFindElement(rnode, rnode, "SegmentTemplate", NULL, NULL, MXML_DESCEND_FIRST);
             if (t == NULL) {
-                r->segment_template = sets[i].segment_template;
-                sets[i].segment_template.timeline_refs++;
+                r->segment_template = new_set->segment_template;
+                new_set->segment_template.timeline_refs++;
             } else {
                 r->segment_template = get_segment_template(t);
             }
         }
-        i++;
     }
 
     mpd->adaptation_sets = sets;
