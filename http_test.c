@@ -3,10 +3,21 @@
 
 char *test_urljoin()
 {
-    ASSERT_STR_EQ(urljoin("http://foo.bar/", "baz"), "http://foo.bar/baz");
-    ASSERT_STR_EQ(urljoin("http://foo.bar/foo/bar/foobar", "baz"), "http://foo.bar/foo/bar/baz");
-    ASSERT_STR_EQ(urljoin("http://foo.bar/foo/bar/foobar", "/baz"), "http://foo.bar/foo/bar/baz");
-    ASSERT_STR_EQ(urljoin("http://foo.bar/foo/bar/foobar", "/baz"), "http://foo.bar/foo/bar/baz");
+    char *joined = urljoin("http://foo.bar/", "baz");
+    ASSERT_STR_EQ(joined, "http://foo.bar/baz");
+    free(joined);
+
+    joined = urljoin("http://foo.bar/foo/bar/foobar", "baz");
+    ASSERT_STR_EQ(joined, "http://foo.bar/foo/bar/baz");
+    free(joined);
+
+    joined = urljoin("http://foo.bar/foo/bar/foobar", "/baz");
+    ASSERT_STR_EQ(joined, "http://foo.bar/foo/bar/baz");
+    free(joined);
+
+    joined = urljoin("http://foo.bar/foo/bar/foobar", "/baz");
+    ASSERT_STR_EQ(joined, "http://foo.bar/foo/bar/baz");
+    free(joined);
 
     return NULL;
 }
