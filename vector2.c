@@ -10,7 +10,7 @@ struct Header {
     size_t len;
 };
 
-#define VECHEAD(data) ((struct Header *)((char*)data - sizeof (struct Header)))
+#define VECHEAD(data) ((struct Header *)((unsigned char*)data - sizeof (struct Header)))
 #define VECDATA(head) (head + 1)
 
 void *vecnew(size_t nmemb, size_t item_size) {
@@ -39,7 +39,7 @@ void *vecextend(void **dest, const void* src, size_t n) {
         *dest = VECDATA(head);
     }
 
-    char *bytes_dest = *dest;
+    unsigned char *bytes_dest = *dest;
     void *extension = &bytes_dest[head->len * head->item_size];
 
     if (src == NULL) {
