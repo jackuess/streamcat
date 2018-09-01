@@ -1,3 +1,6 @@
+#include <stdalign.h>
+#include <stdint.h>
+
 #include "minunit.h"
 #include "vector2.h"
 
@@ -63,6 +66,14 @@ char *test_vector_append_struct() {
     ASSERT_EQ(foo[1].b, 8);
     ASSERT_EQ(veclen(foo), 2);
 
+    vecfree(foo);
+
+    return NULL;
+}
+
+char *test_vector_memory_alignment() {
+    long double *foo = vecnew(1, sizeof (foo[0]));
+    ASSERT_EQ((uintptr_t)(const void *)foo % alignof (foo[0]), 0);
     vecfree(foo);
 
     return NULL;
