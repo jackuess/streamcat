@@ -38,7 +38,7 @@ struct CMD {
 struct CMD parse_args(int argc, char *argv[argc+1]) {
     struct CMD cmd = {
         .mode = LIST_REPRS,
-        .repr_index = vecnew(4, sizeof (long))
+        .repr_index = VECNEW(4, long)
     };
     int o;
 
@@ -46,7 +46,7 @@ struct CMD parse_args(int argc, char *argv[argc+1]) {
         switch (o) {
         case 'i':
             cmd.mode = cmd.mode != DOWNLOAD_REPR_URLS ? PRINT_REPR_URLS : cmd.mode;
-            long *repr_index = VECAPPEND(&cmd.repr_index, NULL);
+            long *repr_index = VECAPPEND(&cmd.repr_index);
             *repr_index = strtol(optarg, NULL, 10);
             break;
         case 'v':
@@ -317,7 +317,7 @@ int main(int argc, char *argv[argc + 1])
     }
 
 finally:
-    vecfree(cmd.repr_index);
+    VECFREE(cmd.repr_index);
     free(effective_url);
     free(representations);
     mpd_free(mpd);

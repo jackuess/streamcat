@@ -5,59 +5,84 @@
 #include "vector2.h"
 
 struct Header {
-    size_t item_size;
     size_t cap;
     size_t len;
 };
 
-#define VECHEAD(data) ((struct Header *)((unsigned char*)data - sizeof (struct Header)))
-#define VECDATA(head) (head + 1)
-
-void *vecnew(size_t nmemb, size_t item_size) {
-    struct Header *head = malloc(sizeof (*head) + nmemb * item_size);  // TODO(Jacques): Handle failure
-    head->item_size = item_size;
-    head->cap = nmemb;
-    head->len = 0;
-    return VECDATA(head);
+static inline void vecwritehead(void *data, struct Header *head) {
+    memcpy((unsigned char*)data - sizeof (*head), head, sizeof (*head));
 }
 
-static void *vecgrow(struct Header *head, size_t required_len) {
-    size_t newcap = required_len * 2;
-    head = realloc(head, sizeof (*head) + newcap * head->item_size);  // TODO(Jacques): Handle failure
-    head->cap = newcap;
-    return head;
+static inline void vecreadhead(struct Header *head, const void *data) {
+    memcpy(head, (unsigned char*)data - sizeof (*head), sizeof (*head));
 }
 
-void *vecappend(void **dest, const void* src) {
-    return vecextend(dest, src, 1);
+static size_t vecdataoffset(size_t header_size, size_t data_alignment) {
+    return header_size + (header_size % data_alignment);
 }
 
-void *vecextend(void **dest, const void* src, size_t n) {
-    struct Header *head = VECHEAD(*dest);
-    if (head->len + n > head->cap) {
-        head = vecgrow(head, head->len + n);
-        *dest = VECDATA(head);
-    }
+static void *vecsetcap(void *data, size_t item_size, size_t alignment, size_t cap) {
+    size_t data_offset = vecdataoffset(sizeof (struct Header), alignment);
+    unsigned char *buf = NULL;
 
-    unsigned char *bytes_dest = *dest;
-    void *extension = &bytes_dest[head->len * head->item_size];
-
-    if (src == NULL) {
-        memset(extension, 0, head->item_size * n);
+    if (data == NULL) {
+        buf = malloc(data_offset + cap * item_size);
     } else {
-        memcpy(extension, src, head->item_size * n);
+        buf = realloc((unsigned char*)data - data_offset, data_offset + cap * item_size);
+    }
+    if (buf == NULL) {
+        return NULL;
     }
 
-    head->len += n;
+    return buf + data_offset;
+}
+
+void *vecnew(size_t nmemb, size_t item_size, size_t alignment) {
+    struct Header head = {0};
+
+    void *data = vecsetcap(NULL, item_size, alignment, nmemb);
+    if (data == NULL) {
+        return NULL;
+    }
+
+    head.cap = nmemb;
+    head.len = 0;
+    vecwritehead(data, &head);
+
+    return data;
+}
+
+void *vecextend(void **data, size_t item_size, size_t alignment, size_t n) {
+    struct Header head;
+    vecreadhead(&head, *data);
+    if (head.len + n > head.cap) {
+        size_t new_cap = 2 * (head.len + n);
+        *data = vecsetcap(*data, item_size, alignment, new_cap);
+        if (*data == NULL) {
+            return NULL;
+        }
+        head.cap = new_cap;
+    }
+
+    unsigned char *data_bytes = *data;
+    void *extension = &data_bytes[head.len * item_size];
+
+    head.len += n;
+    vecwritehead(*data, &head);
+
     return extension;
 }
 
-size_t veclen(const void *data) {
-    struct Header *head = VECHEAD(data);
-    return head->len;
+void *vecappend(void **data, size_t item_size, size_t alignment) {
+    return vecextend(data, item_size, alignment, 1);
 }
 
-void vecfree(void *data) {
-    struct Header *head = VECHEAD(data);
-    free(head);
+size_t veclen(const void *data) {
+    struct Header head;
+    vecreadhead(&head, data);
+    return head.len;
+}
+
+void vecfree(void *data, size_t alignment) {
+    free((unsigned char*)data - vecdataoffset(sizeof (struct Header), alignment));
 }
