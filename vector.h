@@ -1,44 +1,17 @@
 #ifndef vector_h_INCLUDED
 #define vector_h_INCLUDED
 
-#include <stddef.h>
-#include <stdlib.h>
+#include <stdalign.h>
 
-#define VECTOR_INIT_CAPACITY 4
+void *vecnew(size_t nmemb, size_t item_size, size_t alignment);
+void *vecappend(void **dest, size_t item_size, size_t alignment);
+void *vecextend(void **dest, size_t item_size, size_t alignment, size_t n);
+size_t veclen(const void *data);
+void vecfree(void *data, size_t alignment);
 
-struct Vector {
-    size_t _capacity;
-    size_t len;
-    void *items[];
-};
-
-struct Vector *vector_init()
-{
-    struct Vector *vec = malloc(offsetof(struct Vector, items) + VECTOR_INIT_CAPACITY * sizeof vec->items[0]);
-    if (vec != NULL) {
-        vec->_capacity = VECTOR_INIT_CAPACITY;
-        vec->len = 0;
-    }
-    return vec;
-}
-
-void vector_free(struct Vector *vec)
-{
-    for (size_t i = 0; i < vec->len; i++) {
-        free(vec->items[i]);
-    }
-    free(vec);
-}
-
-struct Vector *vector_append(struct Vector *vec, void *item)
-{
-    if (vec->_capacity == vec->len) {
-    	vec = realloc(vec, offsetof(struct Vector, items) + vec->_capacity * 2 * sizeof vec->items[0]);
-    }
-    if (vec != NULL) {
-        vec->items[vec->len++] = item;
-    }
-    return vec;
-}
+#define VECNEW(nmemb, type) vecnew(nmemb, sizeof (type), alignof (type))
+#define VECAPPEND(dest) vecappend((void**)dest, sizeof (*dest[0]), alignof (*dest[0]))
+#define VECEXTEND(dest, n) vecextend((void**)dest, sizeof (*dest[0]), alignof (*dest[0]), n)
+#define VECFREE(data) vecfree(data, alignof (data[0]))
 
 #endif // vector_h_INCLUDED

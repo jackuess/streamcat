@@ -1,8 +1,7 @@
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "vector2.h"
+#include "vector.h"
 
 struct Header {
     size_t cap;

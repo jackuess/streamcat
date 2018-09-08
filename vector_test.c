@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 #include "minunit.h"
-#include "vector2.h"
+#include "vector.h"
 
 char *test_vector_append() {
     char *string = VECNEW(1, string[0]);

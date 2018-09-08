@@ -11,7 +11,7 @@
 #include "http.h"
 #include "muxing.h"
 #include "mpd.h"
-#include "vector2.h"
+#include "vector.h"
 
 #define ANSI_BG_GREEN "\033[42m"
 #define ANSI_BG_BLUE "\033[44m"

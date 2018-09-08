@@ -6,7 +6,7 @@
 
 #include "http.h"
 #include "mpd.h"
-#include "vector2.h"
+#include "vector.h"
 
 enum URL_TEMPLATE_IDENTIFIERS {
     _UNDEFINED,
