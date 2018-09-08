@@ -38,7 +38,7 @@ struct CMD {
 struct CMD parse_args(int argc, char *argv[argc+1]) {
     struct CMD cmd = {
         .mode = LIST_REPRS,
-        .repr_index = VECNEW(4, long)
+        .repr_index = vecnew(4, sizeof (long))
     };
     int o;
 
@@ -317,7 +317,7 @@ int main(int argc, char *argv[argc + 1])
     }
 
 finally:
-    VECFREE(cmd.repr_index);
+    vecfree(cmd.repr_index);
     free(effective_url);
     free(representations);
     mpd_free(mpd);

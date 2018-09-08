@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -pedantic -std=c99 -O3 -fstrict-aliasing -fsanitize=undefined
+CFLAGS = -pedantic -std=c11 -O3 -fstrict-aliasing -fsanitize=undefined
 CFLAGS += -Werror -Wextra -Wall -Wconversion -Wno-sign-conversion -Wstrict-aliasing
 DEBUG = 1
 
