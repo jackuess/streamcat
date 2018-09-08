@@ -5,13 +5,11 @@
 
 #include "vector.h"
 
-#define MAX_ALIGNMENT alignof (max_align_t)
-
 struct Header {
     size_t cap;
     size_t len;
     size_t item_size;
-    unsigned int padding: (sizeof (size_t) * 3) % MAX_ALIGNMENT;
+    unsigned int padding: (sizeof (size_t) * 3) % alignof (max_align_t);
 };
 
 static inline struct Header *vechead(const void *data) {
