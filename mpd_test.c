@@ -1,8 +1,9 @@
+#include <stdlib.h>
+
 #include "mpd.h"
 #include "minunit.h"
 
-extern char *test_mpd_manifest_parse_time()
-{
+void test_mpd_manifest_parse_time(struct TestResult *tr) {
     const char *manifest = "<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd\" profiles=\"urn:mpeg:dash:profile:isoff-live:2011\" type=\"static\" publishTime=\"2018-08-01T02:44:03Z\" mediaPresentationDuration=\"PT58M29.16S\" minBufferTime=\"PT1.5S\">"
                            "  <ProgramInformation>"
                            "    <Title>Title</Title>"
@@ -42,56 +43,54 @@ extern char *test_mpd_manifest_parse_time()
     struct Representation *representations = NULL;
     size_t n_representations = mpd_get_representations(&representations, mpd);
 
-    ASSERT_TRUE("Expected 8 representations", n_representations == 8);
-    ASSERT_STR_EQ(representations[0].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[1].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[2].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[3].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[4].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[6].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[7].mime_type, "audio/mp4");
+    ASSERT_TRUE(tr, n_representations == 8);
+    ASSERT_STR_EQ(tr, representations[0].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[1].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[2].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[3].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[4].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[6].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[7].mime_type, "audio/mp4");
 
     char *url;
     long next_start = 0;
 
     for (size_t i = 0; i < n_representations; i++) {
-        ASSERT_EQ(mpd_get_url_count(&representations[i]), 5);
+        ASSERT_EQ(tr, mpd_get_url_count(&representations[i]), 5);
     }
 
     mpd_get_url(&url, "http://foo.bar/", &representations[3], INITIALIZATION_URL, 0);
-    ASSERT_STR_EQ(url, "http://foo.bar/video_repr4_init.m4s");
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr4_init.m4s");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[3], MEDIA_URL, 0);
-    ASSERT_EQ(next_start, 900000);
-    ASSERT_STR_EQ(url, "http://foo.bar/video_repr4_t0.m4s");
+    ASSERT_EQ(tr, next_start, 900000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr4_t0.m4s");
     free(url);
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[3], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 1800000);
-    ASSERT_STR_EQ(url, "http://foo.bar/video_repr4_t900000.m4s");
+    ASSERT_EQ(tr, next_start, 1800000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr4_t900000.m4s");
     free(url);
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 2700000);
-    ASSERT_STR_EQ(url, "http://foo.bar/video_repr3_t1800000.m4s");
+    ASSERT_EQ(tr, next_start, 2700000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr3_t1800000.m4s");
     free(url);
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 3600000);
-    ASSERT_STR_EQ(url, "http://foo.bar/video_repr2_t2700000.m4s");
+    ASSERT_EQ(tr, next_start, 3600000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr2_t2700000.m4s");
     free(url);
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[0], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 4424400);
-    ASSERT_STR_EQ(url, "http://foo.bar/video_repr1_t3600000.m4s");
+    ASSERT_EQ(tr, next_start, 4424400);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr1_t3600000.m4s");
     free(url);
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 0);
+    ASSERT_EQ(tr, next_start, 0);
 
     free(representations);
     mpd_free(mpd);
-
-    return NULL;
 }
 
-char *test_mpd_manifest_parse_numbers() {
+void test_mpd_manifest_parse_numbers(struct TestResult *tr) {
     const char *manifest = "<MPD mediaPresentationDuration=\"PT3509.160S\" minBufferTime=\"PT2.00S\" profiles=\"urn:hbbtv:dash:profile:isoff-live:2012,urn:mpeg:dash:profile:isoff-live:2011\" type=\"static\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"urn:mpeg:DASH:schema:MPD:2011 DASH-MPD.xsd\">"
                            "  <BaseURL>./</BaseURL>"
                            "  <Period>"
@@ -130,63 +129,61 @@ char *test_mpd_manifest_parse_numbers() {
     struct Representation *representations; 
     size_t n_representations = mpd_get_representations(&representations, mpd);
 
-    ASSERT_TRUE("Expected 5 representations", n_representations == 5);
-    ASSERT_STR_EQ(representations[0].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[1].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[2].mime_type, "video/mp4");
-    ASSERT_STR_EQ(representations[3].mime_type, "audio/mp4");
-    ASSERT_STR_EQ(representations[4].mime_type, "audio/mp4");
+    ASSERT_TRUE(tr, n_representations == 5);
+    ASSERT_STR_EQ(tr, representations[0].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[1].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[2].mime_type, "video/mp4");
+    ASSERT_STR_EQ(tr, representations[3].mime_type, "audio/mp4");
+    ASSERT_STR_EQ(tr, representations[4].mime_type, "audio/mp4");
 
     char *url;
     long next_start = 0;
 
     for (size_t i = 0; i < n_representations; i++) {
-        ASSERT_EQ(mpd_get_url_count(&representations[i]), 5);
+        ASSERT_EQ(tr, mpd_get_url_count(&representations[i]), 5);
     }
 
     mpd_get_url(&url, "http://foo.bar/", &representations[2], INITIALIZATION_URL, 0);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00000.m4v");
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00000.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, 0);
-    ASSERT_EQ(next_start, 150000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00001.m4v");
+    ASSERT_EQ(tr, next_start, 150000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00001.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 300000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00002.m4v");
+    ASSERT_EQ(tr, next_start, 300000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00002.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 450000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00003.m4v");
+    ASSERT_EQ(tr, next_start, 450000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00003.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, 300001);
-    ASSERT_EQ(next_start, 450000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00003.m4v");
+    ASSERT_EQ(tr, next_start, 450000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00003.m4v");
     free(url);
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, 449999);
-    ASSERT_EQ(next_start, 450000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr3/repr3_00003.m4v");
+    ASSERT_EQ(tr, next_start, 450000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00003.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 600000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr2/repr2_00004.m4v");
+    ASSERT_EQ(tr, next_start, 600000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr2/repr2_00004.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[0], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 729000);
-    ASSERT_STR_EQ(url, "http://foo.bar/repr1/repr1_00005.m4v");
+    ASSERT_EQ(tr, next_start, 729000);
+    ASSERT_STR_EQ(tr, url, "http://foo.bar/repr1/repr1_00005.m4v");
     free(url);
 
     next_start = mpd_get_url(&url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
-    ASSERT_EQ(next_start, 0);
+    ASSERT_EQ(tr, next_start, 0);
 
     free(representations);
     mpd_free(mpd);
-
-    return NULL;
 }

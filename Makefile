@@ -15,7 +15,7 @@ streamcat: streamcat.c streamlisting.c output.c
 mpdcat: mpdcat.c muxing.c muxing.h mpd.h mpd.c http.h http.c vector.h vector.c
 	$(CC) $(CFLAGS) -lavcodec -lavformat -lavutil -lcurl -lmxml muxing.c mpd.c http.c output.c vector.c mpdcat.c -o$@
 
-test: http_test.c http.c mpd_test.c vector.c vector.h vector_test.c http.h output.c minunit.h unittest.c
-	$(CC) $(CFLAGS) -lcurl -lmxml http_test.c http.c mpd_test.c mpd.c unittest.c output.c vector.c vector_test.c -o$@
+test: http_test.c http.c mpd_test.c vector.c vector.h vector_test.c http.h output.c minunit.c minunit.h unittest.c
+	$(CC) $(CFLAGS) -lcurl -lmxml http_test.c http.c minunit.c mpd_test.c mpd.c unittest.c output.c vector.c vector_test.c -o$@
 	valgrind ./$@
 	rm $@
