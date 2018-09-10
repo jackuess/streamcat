@@ -1,8 +1,8 @@
 #include <stdalign.h>
 #include <stdint.h>
 
-#include "minunit.h"
 #include "vector.h"
+#include "vendor/scut/scut.h"
 
 void test_vector_append(struct TestResult *tr) {
     char *string = vecnew(1, sizeof (string[0]));

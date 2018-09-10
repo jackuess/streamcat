@@ -1,6 +1,8 @@
 #ifndef vector_h_INCLUDED
 #define vector_h_INCLUDED
 
+#include <stddef.h>
+
 void *vecnew(size_t nmemb, size_t item_size);
 void *vecappend(void **dest);
 void *vecextend(void **dest, size_t n);

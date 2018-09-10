@@ -1,0 +1,3 @@
+[submodule "vendor/scut"]
+	path = vendor/scut
+	url = https://github.com/jackuess/scut.git
