@@ -12,7 +12,7 @@ struct Header {
 };
 
 static inline struct Header *vechead(const void *data) {
-    return (struct Header *)((unsigned char*)data - sizeof (struct Header));
+    return (struct Header *)data - 1;
 }
 
 static void *vecsetcap(void *data, size_t item_size, size_t cap) {
