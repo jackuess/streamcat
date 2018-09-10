@@ -51,7 +51,7 @@ void *vecnew(size_t len, size_t item_size) {
 void *vecextend(void **data, size_t n) {
     struct Header *head = vechead(*data);
     if (head->len + n > head->cap) {
-        size_t new_cap = 2 * (head->len + n);
+        size_t new_cap = 2 * (head->len + n);  // TODO(Jacques): Backoff from doubling at a certain capacity
         *data = vecsetcap(*data, head->item_size, new_cap);
         if (*data == NULL) {
             return NULL;
