@@ -30,7 +30,7 @@ URLTemplate parse_url_template(const char *str)
     char *fmt = malloc(sizeof (char*) * strlen(str) + 1);
     size_t fmt_len = 0;
     enum URL_TEMPLATE_IDENTIFIERS replacement_tag = _UNDEFINED;
-    URLTemplate template = vecnew(1, sizeof (template[0]));
+    URLTemplate template = vecnew(0, sizeof (template[0]));
 
     for (size_t i = 0; str[i] != '\0'; i++) {
         if (str[i] == '$') {
@@ -183,7 +183,7 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set)
 {
     struct SegmentTemplate template = {0};
     const char *a;
-    template.timeline = vecnew(3, sizeof (template.timeline[0]));
+    template.timeline = vecnew(0, sizeof (template.timeline[0]));
 
     mxml_node_t *root = mxmlFindElement(adaptation_set, adaptation_set, "SegmentTemplate", NULL, NULL, MXML_DESCEND_FIRST);
     template.initialization = mxmlElementGetAttr(root, "initialization");
@@ -229,7 +229,7 @@ struct MPD *mpd_parse(const char *buffer)
     struct MPD *mpd = calloc(1, sizeof (struct MPD));
     const char *TAG_ADAPTATION_SET = "AdaptationSet";
     const char *TAG_REPRESENTATION = "Representation";
-    struct AdaptationSet *sets = vecnew(1, sizeof (sets[0]));
+    struct AdaptationSet *sets = vecnew(0, sizeof (sets[0]));
 
     mxml_node_t *root = mxmlLoadString(NULL, buffer, MXML_OPAQUE_CALLBACK);
 
@@ -239,7 +239,7 @@ struct MPD *mpd_parse(const char *buffer)
         anode = mxmlFindElement(anode, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_NO_DESCEND)
     ) {
         struct AdaptationSet *new_set = VECAPPEND(&sets);
-        new_set->representations = vecnew(4, sizeof (new_set->representations[0]));
+        new_set->representations = vecnew(0, sizeof (new_set->representations[0]));
         new_set->mime_type = mxmlElementGetAttr(anode, "mimeType");
         new_set->segment_template = get_segment_template(anode);
 

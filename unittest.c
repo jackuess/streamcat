@@ -7,6 +7,7 @@ void test_vector_append(struct TestResult *tr);
 void test_vector_extend(struct TestResult *tr);
 void test_vector_append_struct(struct TestResult *tr);
 void test_vector_memory_alignment(struct TestResult *tr);
+void test_vector_initial_len(struct TestResult *tr);
 
 int main() {
     void (*test_functions[]) (struct TestResult *) = {
@@ -16,7 +17,8 @@ int main() {
         &test_vector_append,
         &test_vector_extend,
         &test_vector_append_struct,
-        &test_vector_memory_alignment
+        &test_vector_memory_alignment,
+        &test_vector_initial_len
     };
 
     struct TestResult *tr = t_run(sizeof test_functions / sizeof test_functions[0], test_functions);

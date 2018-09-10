@@ -4,6 +4,8 @@
 
 #include "vector.h"
 
+#define INITAL_CAP 4
+
 struct Header {
     size_t cap;
     size_t len;
@@ -31,15 +33,16 @@ static void *vecsetcap(void *data, size_t item_size, size_t cap) {
     return buf + data_offset;
 }
 
-void *vecnew(size_t nmemb, size_t item_size) {
-    void *data = vecsetcap(NULL, item_size, nmemb);
+void *vecnew(size_t len, size_t item_size) {
+    size_t cap = (len > INITAL_CAP) ? len : INITAL_CAP;
+    void *data = vecsetcap(NULL, item_size, cap);
     if (data == NULL) {
         return NULL;
     }
 
     struct Header *head = vechead(data);;
-    head->cap = nmemb;
-    head->len = 0;
+    head->cap = cap;
+    head->len = len;
     head->item_size = item_size;
 
     return data;

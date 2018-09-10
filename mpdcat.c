@@ -38,7 +38,7 @@ struct CMD {
 struct CMD parse_args(int argc, char *argv[argc+1]) {
     struct CMD cmd = {
         .mode = LIST_REPRS,
-        .repr_index = vecnew(4, sizeof (long))
+        .repr_index = vecnew(0, sizeof (long))
     };
     int o;
 
