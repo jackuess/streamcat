@@ -1,7 +1,7 @@
 #include <stdalign.h>
 #include <stdint.h>
 
-#include "vendor/scut/scut.h"
+#include "minunit.h"
 #include "vector.h"
 
 void test_vector_append(struct TestResult *tr) {

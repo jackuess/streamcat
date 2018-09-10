@@ -1,5 +1,5 @@
-#ifndef scut_h_INCLUDED
-#define scut_h_INCLUDED
+#ifndef minunit_h_INCLUDED
+#define minunit_h_INCLUDED
 
 #include <string.h>
 
@@ -29,4 +29,4 @@ void tr_print(const struct TestResult *tr);
 _Bool tr_success(const struct TestResult *tr);
 void tr_free(struct TestResult *tr);
 
-#endif // scut_h_INCLUDED
+#endif // minunit_h_INCLUDED

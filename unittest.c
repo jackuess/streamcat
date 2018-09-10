@@ -1,4 +1,4 @@
-#include "vendor/scut/scut.h"
+#include "minunit.h"
 
 void test_urljoin(struct TestResult *tr);
 void test_mpd_manifest_parse_time(struct TestResult *tr);

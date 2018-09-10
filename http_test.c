@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
 #include "http.h"
-#include "vendor/scut/scut.h"
+#include "minunit.h"
 
 void test_urljoin(struct TestResult *tr) {
     char *joined = urljoin("http://foo.bar/", "baz");

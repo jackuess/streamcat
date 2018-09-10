@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "scut.h"
+#include "minunit.h"
 
 char *t_error_message (const char *test_name, const char *first, const char *second) {
     static const char *format = "%s: %s != %s";
