@@ -22,13 +22,11 @@ mpdcat: $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
 	$(CC) $(CFLAGS) $(MPDCAT_LIBS) $(MPDCAT_SOURCES) -o$@
 
 TEST_SOURCES = \
-    http_test.c \
+    *_test.c \
     http.c \
-    mpd_test.c \
     mpd.c \
     output.c \
-    vector.c \
-    vector_test.c
+    vector.c
 .PHONY: test
 test:
 	$(CC) $(CFLAGS) -lcurl -lmxml vendor/scut/scut.c unittest.c $(TEST_SOURCES) -o$@
