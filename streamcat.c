@@ -8,35 +8,34 @@
 
 #include "streamlisting.h"
 
-int main(int argc, char *argv[argc+1])
-{
-	struct StreamList *stream_list;
-	struct StreamList *chunks;
-	int o;
-	int showinfo = 0;
-	int download = 1;
-	long stream_index = -1;
-	const char *url;
+int main(int argc, char *argv[argc + 1]) {
+    struct StreamList *stream_list;
+    struct StreamList *chunks;
+    int o;
+    int showinfo = 0;
+    int download = 1;
+    long stream_index = -1;
+    const char *url;
 
-	while ((o = getopt(argc, argv, "i:vI")) != -1) {
-    	switch (o) {
+    while ((o = getopt(argc, argv, "i:vI")) != -1) {
+        switch (o) {
         case 'i':
             stream_index = strtol(optarg, NULL, 10);
-        	break;
-    	case 'v':
-        	showinfo = 1;
-        	break;
+            break;
+        case 'v':
+            showinfo = 1;
+            break;
         case 'I':
-        	showinfo = 1;
-        	download = 0;
-        	break;
-    	}
-	};
-	if (optind >= argc) {
-    	printf("No URL specified\n");
-    	return 1;
-	}
-	url = argv[optind];
+            showinfo = 1;
+            download = 0;
+            break;
+        }
+    };
+    if (optind >= argc) {
+        printf("No URL specified\n");
+        return 1;
+    }
+    url = argv[optind];
 
     curl_global_init(0);
 
@@ -56,7 +55,8 @@ int main(int argc, char *argv[argc+1])
         if (stream_index < 0 || stream_index >= (int)stream_list->n_streams) {
             stream_index = stream_list->n_streams - 1;
         }
-        if (!(chunks = m3u8_get_stream_list(stream_list->streams[stream_index]))) {
+        if (!(chunks =
+                  m3u8_get_stream_list(stream_list->streams[stream_index]))) {
             printf("No chunks found\n");
             stream_list_free(stream_list);
             return 3;

@@ -23,15 +23,17 @@ struct Representation {
     // SegmentList
 };
 
-enum URL_TYPE {
-    INITIALIZATION_URL,
-    MEDIA_URL
-};
+enum URL_TYPE { INITIALIZATION_URL, MEDIA_URL };
 
-struct MPD *mpd_parse(const char*buffer);
+struct MPD *mpd_parse(const char *buffer);
 void mpd_free(struct MPD *mpd);
-size_t mpd_get_representations(struct Representation **repr, const struct MPD *mpd);
+size_t mpd_get_representations(struct Representation **repr,
+                               const struct MPD *mpd);
 size_t mpd_get_url_count(const struct Representation *repr);
-long mpd_get_url(char **url, const char *base_url, const struct Representation *repr, enum URL_TYPE url_type, long time);
+long mpd_get_url(char **url,
+                 const char *base_url,
+                 const struct Representation *repr,
+                 enum URL_TYPE url_type,
+                 long time);
 
-#endif // mpd_h_INCLUDED
+#endif  // mpd_h_INCLUDED

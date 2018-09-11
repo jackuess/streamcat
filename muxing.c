@@ -14,7 +14,8 @@ int add_stream(AVFormatContext *dst_ctx, AVStream *src_stream) {
     if ((dst_stream = avformat_new_stream(dst_ctx, NULL)) == NULL) {
         return 1;
     }
-    if ((errnum = avcodec_parameters_copy(dst_stream->codecpar, src_stream->codecpar)) < 0) {
+    if ((errnum = avcodec_parameters_copy(dst_stream->codecpar,
+                                          src_stream->codecpar)) < 0) {
         return errnum;
     }
     dst_stream->codecpar->codec_tag = 0;
@@ -22,7 +23,10 @@ int add_stream(AVFormatContext *dst_ctx, AVStream *src_stream) {
     return 0;
 }
 
-int copy_stream(AVFormatContext *dst, unsigned int dst_stream_index, AVFormatContext *src, unsigned int src_stream_index) {
+int copy_stream(AVFormatContext *dst,
+                unsigned int dst_stream_index,
+                AVFormatContext *src,
+                unsigned int src_stream_index) {
     int errnum = 0;
     AVPacket pkt;
     AVStream *outstream = dst->streams[dst_stream_index];
@@ -30,9 +34,16 @@ int copy_stream(AVFormatContext *dst, unsigned int dst_stream_index, AVFormatCon
 
     while ((errnum = av_read_frame(src, &pkt)) >= 0) {
         pkt.stream_index = dst_stream_index;
-        pkt.pts = av_rescale_q_rnd(pkt.pts, instream->time_base, outstream->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
-        pkt.dts = av_rescale_q_rnd(pkt.dts, instream->time_base, outstream->time_base, AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
-        pkt.duration = av_rescale_q(pkt.duration, instream->time_base, outstream->time_base);
+        pkt.pts = av_rescale_q_rnd(pkt.pts,
+                                   instream->time_base,
+                                   outstream->time_base,
+                                   AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
+        pkt.dts = av_rescale_q_rnd(pkt.dts,
+                                   instream->time_base,
+                                   outstream->time_base,
+                                   AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
+        pkt.duration = av_rescale_q(
+            pkt.duration, instream->time_base, outstream->time_base);
         pkt.pos = -1;
 
         if ((errnum = av_interleaved_write_frame(dst, &pkt)) < 0) {
@@ -44,13 +55,16 @@ int copy_stream(AVFormatContext *dst, unsigned int dst_stream_index, AVFormatCon
     return errnum;
 }
 
-int mux(const char *out_filename, unsigned int n_in_files, char *in_files[n_in_files]) {
+int mux(const char *out_filename,
+        unsigned int n_in_files,
+        char *in_files[n_in_files]) {
     int errnum;
     unsigned errline = 0;
     AVFormatContext *out_ctx = NULL;
     AVFormatContext *in_ctx[n_in_files];
 
-    if ((errnum = avformat_alloc_output_context2(&out_ctx, NULL, NULL, out_filename)) < 0) {
+    if ((errnum = avformat_alloc_output_context2(
+             &out_ctx, NULL, NULL, out_filename)) < 0) {
         errline = __LINE__;
         goto finally;
     }
@@ -61,7 +75,8 @@ int mux(const char *out_filename, unsigned int n_in_files, char *in_files[n_in_f
 
     for (unsigned int i = 0; i < n_in_files; i++) {
         in_ctx[i] = NULL;
-        if ((errnum = avformat_open_input(&in_ctx[i], in_files[i], NULL, NULL)) < 0) {
+        if ((errnum = avformat_open_input(
+                 &in_ctx[i], in_files[i], NULL, NULL)) < 0) {
             errline = __LINE__;
             goto finally;
         }
@@ -79,7 +94,8 @@ int mux(const char *out_filename, unsigned int n_in_files, char *in_files[n_in_f
     }
 
     if (!(out_ctx->oformat->flags & AVFMT_NOFILE)) {
-        if ((errnum = avio_open(&out_ctx->pb, out_filename, AVIO_FLAG_WRITE)) < 0) {
+        if ((errnum = avio_open(&out_ctx->pb, out_filename, AVIO_FLAG_WRITE)) <
+            0) {
             errline = __LINE__;
             goto finally;
         }

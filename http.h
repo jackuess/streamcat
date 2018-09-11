@@ -19,5 +19,4 @@ void response_free(struct Response *resp);
 
 char *urljoin(const char *base, const char *relative);
 
-#endif // http_h_INCLUDED
-
+#endif  // http_h_INCLUDED

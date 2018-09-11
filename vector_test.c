@@ -5,7 +5,7 @@
 #include "vendor/scut/scut.h"
 
 void test_vector_append(struct TestResult *tr) {
-    char *string = vecnew(0, sizeof (string[0]));
+    char *string = vecnew(0, sizeof(string[0]));
     char *c = NULL;
 
     c = VECAPPEND(&string);
@@ -27,7 +27,7 @@ void test_vector_append(struct TestResult *tr) {
 }
 
 void test_vector_extend(struct TestResult *tr) {
-    char *string = vecnew(0, sizeof (*string));
+    char *string = vecnew(0, sizeof(*string));
     char *source = "foobar";
     char *c;
 
@@ -52,7 +52,7 @@ void foo_init(struct Foo *foo, int a, int b) {
 }
 
 void test_vector_append_struct(struct TestResult *tr) {
-    struct Foo *foo = vecnew(0, sizeof (struct Foo));
+    struct Foo *foo = vecnew(0, sizeof(struct Foo));
 
     foo_init(VECAPPEND(&foo), 5, 6);
     ASSERT_EQ(tr, foo[0].a, 5);
@@ -70,7 +70,7 @@ void test_vector_append_struct(struct TestResult *tr) {
 
 void test_vector_memory_alignment(struct TestResult *tr) {
     long double *foo = vecnew(0, sizeof foo[0]);
-    ASSERT_EQ(tr, (uintptr_t)(const void *)foo % alignof (foo[0]), 0);
+    ASSERT_EQ(tr, (uintptr_t)(const void *)foo % alignof(foo[0]), 0);
     VECAPPEND(&foo);
     foo[0] = 2.2;
     ASSERT_EQ(tr, foo[0], 2.2);

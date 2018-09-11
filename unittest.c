@@ -10,7 +10,7 @@ void test_vector_memory_alignment(struct TestResult *tr);
 void test_vector_initial_len(struct TestResult *tr);
 
 int main() {
-    void (*test_functions[]) (struct TestResult *) = {
+    void (*test_functions[])(struct TestResult *) = {
         &test_urljoin,
         &test_mpd_manifest_parse_time,
         &test_mpd_manifest_parse_numbers,
@@ -18,10 +18,10 @@ int main() {
         &test_vector_extend,
         &test_vector_append_struct,
         &test_vector_memory_alignment,
-        &test_vector_initial_len
-    };
+        &test_vector_initial_len};
 
-    struct TestResult *tr = t_run(sizeof test_functions / sizeof test_functions[0], test_functions);
+    struct TestResult *tr =
+        t_run(sizeof test_functions / sizeof test_functions[0], test_functions);
     tr_print(tr);
 
     _Bool success = tr_success(tr);

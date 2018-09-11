@@ -10,7 +10,7 @@ struct Header {
     size_t cap;
     size_t len;
     size_t item_size;
-    unsigned int padding: (sizeof (size_t) * 3) % alignof (max_align_t);
+    unsigned int padding : (sizeof(size_t) * 3) % alignof(max_align_t);
 };
 
 static inline struct Header *vechead(const void *data) {
@@ -18,7 +18,7 @@ static inline struct Header *vechead(const void *data) {
 }
 
 static void *vecsetcap(void *data, size_t item_size, size_t cap) {
-    const size_t data_offset = sizeof (struct Header);
+    const size_t data_offset = sizeof(struct Header);
     unsigned char *buf = NULL;
 
     if (data == NULL) {
@@ -40,7 +40,7 @@ void *vecnew(size_t len, size_t item_size) {
         return NULL;
     }
 
-    struct Header *head = vechead(data);;
+    struct Header *head = vechead(data);
     head->cap = cap;
     head->len = len;
     head->item_size = item_size;
@@ -51,7 +51,8 @@ void *vecnew(size_t len, size_t item_size) {
 void *vecextend(void **data, size_t n) {
     struct Header *head = vechead(*data);
     if (head->len + n > head->cap) {
-        size_t new_cap = 2 * (head->len + n);  // TODO(Jacques): Backoff from doubling at a certain capacity
+        size_t new_cap = 2 * (head->len + n);  // TODO(Jacques): Backoff from
+                                               // doubling at a certain capacity
         *data = vecsetcap(*data, head->item_size, new_cap);
         if (*data == NULL) {
             return NULL;
@@ -68,15 +69,11 @@ void *vecextend(void **data, size_t n) {
     return extension;
 }
 
-void *vecappend(void **data) {
-    return vecextend(data, 1);
-}
+void *vecappend(void **data) { return vecextend(data, 1); }
 
 size_t veclen(const void *data) {
     struct Header *head = vechead(data);
     return head->len;
 }
 
-void vecfree(void *data) {
-    free(vechead(data));
-}
+void vecfree(void *data) { free(vechead(data)); }
