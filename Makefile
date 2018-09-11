@@ -9,13 +9,27 @@ else
 	CFLAGS += -DNDEBUG
 endif
 
-streamcat: streamcat.c streamlisting.c output.c
-	$(CC) $(CFLAGS) -lcurl output.c streamlisting.c streamcat.c -o$@
+STREAMCAT_LIBS = -lcurl
+STREAMCAT_HEADERS = output.h streamlisting.h
+STREAMCAT_SOURCES = output.c streamlisting.c streamcat.c
+streamcat: $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
+	$(CC) $(CFLAGS) $(STREAMCAT_LIBS) $(STREAMCAT_SOURCES) -o$@
 
-mpdcat: mpdcat.c muxing.c muxing.h mpd.h mpd.c http.h http.c vector.h vector.c
-	$(CC) $(CFLAGS) -lavcodec -lavformat -lavutil -lcurl -lmxml muxing.c mpd.c http.c output.c vector.c mpdcat.c -o$@
+MPDCAT_LIBS = -lavcodec -lavformat -lavutil -lcurl -lmxml
+MPDCAT_HEADERS = http.h mpd.h muxing.h output.h vector.h
+MPDCAT_SOURCES = http.c mpd.c muxing.c output.c vector.c mpdcat.c
+mpdcat: $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
+	$(CC) $(CFLAGS) $(MPDCAT_LIBS) $(MPDCAT_SOURCES) -o$@
 
-test: http_test.c http.c mpd_test.c vector.c vector.h vector_test.c http.h output.c vendor/scut/scut.c vendor/scut/scut.h unittest.c
-	$(CC) $(CFLAGS) -lcurl -lmxml http_test.c http.c vendor/scut/scut.c mpd_test.c mpd.c unittest.c output.c vector.c vector_test.c -o$@
+TEST_SOURCES = \
+    http_test.c \
+    http.c \
+    mpd_test.c \
+    mpd.c \
+    output.c \
+    vector.c \
+    vector_test.c
+.PHONY: test
+test:
+	$(CC) $(CFLAGS) -lcurl -lmxml vendor/scut/scut.c unittest.c $(TEST_SOURCES) -o$@
 	valgrind ./$@
-	rm $@
