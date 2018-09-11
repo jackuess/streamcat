@@ -31,3 +31,7 @@ TEST_SOURCES = \
 test:
 	$(CC) $(CFLAGS) -lcurl -lmxml vendor/scut/scut.c unittest.c $(TEST_SOURCES) -o$@
 	valgrind ./$@
+
+.PHONY: indent
+indent:
+	clang-format -i -style=file *.h *.c
