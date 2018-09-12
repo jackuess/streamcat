@@ -16,8 +16,8 @@ streamcat: $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
 	$(CC) $(CFLAGS) $(STREAMCAT_LIBS) $(STREAMCAT_SOURCES) -o$@
 
 MPDCAT_LIBS = -lavcodec -lavformat -lavutil -lcurl -lmxml
-MPDCAT_HEADERS = http.h mpd.h muxing.h output.h vector.h
-MPDCAT_SOURCES = http.c mpd.c muxing.c output.c vector.c mpdcat.c
+MPDCAT_HEADERS = http.h mpd.h muxing.h output.h vendor/arr/arr.h
+MPDCAT_SOURCES = http.c mpd.c muxing.c output.c vendor/arr/arr.c mpdcat.c
 mpdcat: $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
 	$(CC) $(CFLAGS) $(MPDCAT_LIBS) $(MPDCAT_SOURCES) -o$@
 
@@ -26,7 +26,7 @@ TEST_SOURCES = \
     http.c \
     mpd.c \
     output.c \
-    vector.c
+    vendor/arr/arr.c
 .PHONY: test
 test:
 	$(CC) $(CFLAGS) -lcurl -lmxml vendor/scut/scut.c unittest.c $(TEST_SOURCES) -o$@

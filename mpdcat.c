@@ -6,12 +6,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "vendor/arr/arr.h"
 #include <curl/curl.h>
 
 #include "http.h"
 #include "mpd.h"
 #include "muxing.h"
-#include "vector.h"
 
 #define ANSI_BG_GREEN "\033[42m"
 #define ANSI_BG_BLUE "\033[44m"
@@ -33,7 +33,7 @@ struct CMD {
 
 struct CMD parse_args(int argc, char *argv[argc + 1]) {
     struct CMD cmd = {.mode = LIST_REPRS,
-                      .repr_index = vecnew(0, sizeof(long))};
+                      .repr_index = arrnew(0, sizeof(long))};
     int o;
 
     while ((o = getopt(argc, argv, "i:o:v")) != -1) {
@@ -41,7 +41,7 @@ struct CMD parse_args(int argc, char *argv[argc + 1]) {
         case 'i':
             cmd.mode = cmd.mode != DOWNLOAD_REPR_URLS ? PRINT_REPR_URLS
                                                       : cmd.mode;
-            long *repr_index = VECAPPEND(&cmd.repr_index);
+            long *repr_index = ARRAPPEND(&cmd.repr_index);
             *repr_index = strtol(optarg, NULL, 10);
             break;
         case 'v':
@@ -275,12 +275,12 @@ int main(int argc, char *argv[argc + 1]) {
     }
 
     if (cmd.mode == PRINT_REPR_URLS) {
-        for (size_t i = 0; i < veclen(cmd.repr_index); i++) {
+        for (size_t i = 0; i < arrlen(cmd.repr_index); i++) {
             fprintrepr_urls(
                 stdout, effective_url, &representations[cmd.repr_index[i]]);
         }
     } else if (cmd.mode == DOWNLOAD_REPR_URLS) {
-        unsigned int n_files = (unsigned int)veclen(cmd.repr_index);
+        unsigned int n_files = (unsigned int)arrlen(cmd.repr_index);
         char *file_names[n_files];
         char bandwidthstr[14];
         struct winsize ws;
@@ -343,7 +343,7 @@ int main(int argc, char *argv[argc + 1]) {
     }
 
 finally:
-    vecfree(cmd.repr_index);
+    arrfree(cmd.repr_index);
     free(effective_url);
     free(representations);
     mpd_free(mpd);

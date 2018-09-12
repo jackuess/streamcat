@@ -2,11 +2,11 @@
 
 #include <stdbool.h>
 
+#include "vendor/arr/arr.h"
 #include <mxml.h>
 
 #include "http.h"
 #include "mpd.h"
-#include "vector.h"
 
 enum URL_TEMPLATE_IDENTIFIERS {
     _UNDEFINED,
@@ -29,7 +29,7 @@ URLTemplate parse_url_template(const char *str) {
     char *fmt = malloc(sizeof(char *) * strlen(str) + 1);
     size_t fmt_len = 0;
     enum URL_TEMPLATE_IDENTIFIERS replacement_tag = _UNDEFINED;
-    URLTemplate template = vecnew(0, sizeof(template[0]));
+    URLTemplate template = arrnew(0, sizeof(template[0]));
 
     for (size_t i = 0; str[i] != '\0'; i++) {
         if (str[i] == '$') {
@@ -48,7 +48,7 @@ URLTemplate parse_url_template(const char *str) {
                     }
                     fmt[fmt_len++] = '\0';
 
-                    URLTemplate new_template = VECAPPEND(&template);
+                    URLTemplate new_template = ARRAPPEND(&template);
                     new_template->fmt_string =
                         malloc(sizeof(char *) * fmt_len + 1);
                     strcpy(new_template->fmt_string, fmt);
@@ -91,7 +91,7 @@ URLTemplate parse_url_template(const char *str) {
     }
     if (fmt_len > 0) {
         fmt[fmt_len++] = '\0';
-        URLTemplate new_template = VECAPPEND(&template);
+        URLTemplate new_template = ARRAPPEND(&template);
         new_template->fmt_string = malloc(sizeof(char *) * fmt_len + 1);
         strcpy(new_template->fmt_string, fmt);
         new_template->replacement_id = _UNDEFINED;
@@ -107,12 +107,12 @@ char *url_template_format(const URLTemplate template,
                           long number,
                           long bandwidth,
                           long time) {
-    char *result_parts[veclen(template)];
+    char *result_parts[arrlen(template)];
     size_t result_parts_len = 0;
     long *replacement = NULL;
     struct URLTemplatePair *pair;
 
-    for (size_t i = 0; i < veclen(template); i++) {
+    for (size_t i = 0; i < arrlen(template); i++) {
         pair = &template[i];
         if (pair->replacement_id == _UNDEFINED) {
             size_t fmt_len = strlen(pair->fmt_string);
@@ -148,7 +148,7 @@ char *url_template_format(const URLTemplate template,
 
     char *result = malloc(result_parts_len * sizeof(char *) + 1);
     size_t result_len = 0;
-    for (size_t i = 0; i < veclen(template); i++) {
+    for (size_t i = 0; i < arrlen(template); i++) {
         for (size_t j = 0; result_parts[i][j] != '\0'; j++) {
             result[result_len++] = result_parts[i][j];
         }
@@ -160,10 +160,10 @@ char *url_template_format(const URLTemplate template,
 }
 
 void url_template_free(URLTemplate template) {
-    for (size_t j = 0; j < veclen(template); j++) {
+    for (size_t j = 0; j < arrlen(template); j++) {
         free(template[j].fmt_string);
     }
-    vecfree(template);
+    arrfree(template);
 }
 
 struct MPD {
@@ -186,7 +186,7 @@ struct AdaptationSet {
 struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set) {
     struct SegmentTemplate template = {0};
     const char *a;
-    template.timeline = vecnew(0, sizeof(template.timeline[0]));
+    template.timeline = arrnew(0, sizeof(template.timeline[0]));
 
     mxml_node_t *root = mxmlFindElement(adaptation_set,
                                         adaptation_set,
@@ -211,7 +211,7 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set) {
          node != NULL;
          node = mxmlFindElement(
              node, timeline, "S", NULL, NULL, MXML_DESCEND_FIRST)) {
-        struct SegmentTime *t = VECAPPEND(&template.timeline);
+        struct SegmentTime *t = ARRAPPEND(&template.timeline);
 
         t->part_duration = strtol(mxmlElementGetAttr(node, "d"), NULL, 10);
 
@@ -237,7 +237,7 @@ struct MPD *mpd_parse(const char *buffer) {
     struct MPD *mpd = calloc(1, sizeof(struct MPD));
     const char *TAG_ADAPTATION_SET = "AdaptationSet";
     const char *TAG_REPRESENTATION = "Representation";
-    struct AdaptationSet *sets = vecnew(0, sizeof(sets[0]));
+    struct AdaptationSet *sets = arrnew(0, sizeof(sets[0]));
 
     mxml_node_t *root = mxmlLoadString(NULL, buffer, MXML_OPAQUE_CALLBACK);
 
@@ -246,9 +246,9 @@ struct MPD *mpd_parse(const char *buffer) {
          anode != NULL;
          anode = mxmlFindElement(
              anode, root, TAG_ADAPTATION_SET, NULL, NULL, MXML_NO_DESCEND)) {
-        struct AdaptationSet *new_set = VECAPPEND(&sets);
+        struct AdaptationSet *new_set = ARRAPPEND(&sets);
         new_set->representations =
-            vecnew(0, sizeof(new_set->representations[0]));
+            arrnew(0, sizeof(new_set->representations[0]));
         new_set->mime_type = mxmlElementGetAttr(anode, "mimeType");
         new_set->segment_template = get_segment_template(anode);
 
@@ -265,7 +265,7 @@ struct MPD *mpd_parse(const char *buffer) {
                                      NULL,
                                      NULL,
                                      MXML_NO_DESCEND)) {
-            struct Representation *r = VECAPPEND(&new_set->representations);
+            struct Representation *r = ARRAPPEND(&new_set->representations);
             r->id = mxmlElementGetAttr(rnode, "id");
             r->bandwidth =
                 strtol(mxmlElementGetAttr(rnode, "bandwidth"), NULL, 10);
@@ -295,25 +295,25 @@ struct MPD *mpd_parse(const char *buffer) {
 
 void representation_free(struct Representation *repr) {
     if (--(repr->segment_template.timeline_refs) == 0) {
-        vecfree(repr->segment_template.timeline);
+        arrfree(repr->segment_template.timeline);
     }
 }
 
 void adaptation_set_free(struct AdaptationSet *set) {
-    for (size_t i = 0; i < veclen(set->representations); i++) {
+    for (size_t i = 0; i < arrlen(set->representations); i++) {
         representation_free(&set->representations[i]);
     }
     if (--(set->segment_template.timeline_refs) == 0) {
-        vecfree(set->segment_template.timeline);
+        arrfree(set->segment_template.timeline);
     }
-    vecfree(set->representations);
+    arrfree(set->representations);
 }
 
 void mpd_free(struct MPD *mpd) {
-    for (size_t i = 0; i < veclen(mpd->adaptation_sets); i++) {
+    for (size_t i = 0; i < arrlen(mpd->adaptation_sets); i++) {
         adaptation_set_free(&mpd->adaptation_sets[i]);
     }
-    vecfree(mpd->adaptation_sets);
+    arrfree(mpd->adaptation_sets);
     mxmlDelete(mpd->_doc);
     free(mpd);
 }
@@ -322,15 +322,15 @@ size_t mpd_get_representations(struct Representation **ret,
                                const struct MPD *mpd) {
     size_t len = 0;
 
-    for (size_t i = 0; i < veclen(mpd->adaptation_sets); i++) {
-        len += veclen(mpd->adaptation_sets[i].representations);
+    for (size_t i = 0; i < arrlen(mpd->adaptation_sets); i++) {
+        len += arrlen(mpd->adaptation_sets[i].representations);
     }
 
     struct Representation *repr = calloc(len, sizeof(repr[0]));
     *ret = repr;
-    for (size_t i = 0; i < veclen(mpd->adaptation_sets); i++) {
+    for (size_t i = 0; i < arrlen(mpd->adaptation_sets); i++) {
         struct AdaptationSet *set = &mpd->adaptation_sets[i];
-        for (size_t j = 0; j < veclen(set->representations); j++) {
+        for (size_t j = 0; j < arrlen(set->representations); j++) {
             *repr = set->representations[j];
             repr++;
         }
@@ -342,7 +342,7 @@ size_t mpd_get_representations(struct Representation **ret,
 size_t mpd_get_url_count(const struct Representation *repr) {
     size_t count = 0;
 
-    for (size_t i = 0; i < veclen(repr->segment_template.timeline); i++) {
+    for (size_t i = 0; i < arrlen(repr->segment_template.timeline); i++) {
         count += repr->segment_template.timeline[i].part_count;
     }
 
@@ -369,7 +369,7 @@ long mpd_get_url(char **url,
     }
 
     struct SegmentTime *timeline = repr->segment_template.timeline;
-    for (size_t i = 0; i < veclen(timeline); i++) {
+    for (size_t i = 0; i < arrlen(timeline); i++) {
         struct SegmentTime *t = &timeline[i];
 
         if (time >= t->start &&

@@ -1,3 +1,6 @@
 [submodule "vendor/scut"]
 	path = vendor/scut
 	url = https://github.com/jackuess/scut.git
+[submodule "vendor/arr"]
+	path = vendor/arr
+	url = https://github.com/jackuess/arr.git
