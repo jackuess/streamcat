@@ -9,24 +9,27 @@ else
 	CFLAGS += -DNDEBUG
 endif
 
-bin/:
+BINARY_DIR = bin
+BINARIES = $(BINARY_DIR)/mpdcat $(BINARY_DIR)/streamcat
+
+.PHONY: build test memcheck indent
+
+build: $(BINARIES)
+
+$(BINARY_DIR):
 	mkdir $@
 
 STREAMCAT_LIBS = -lcurl
 STREAMCAT_HEADERS = output.h streamlisting.h
 STREAMCAT_SOURCES = output.c streamlisting.c streamcat.c
-bin/streamcat: bin/ $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
+$(BINARY_DIR)/streamcat: $(BINARY_DIR) $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
 	$(CC) $(CFLAGS) $(STREAMCAT_LIBS) $(STREAMCAT_SOURCES) -o$@
-.PHONY: streamcat
-streamcat: bin/streamcat
 
 MPDCAT_LIBS = -lavcodec -lavformat -lavutil -lcurl -lmxml
 MPDCAT_HEADERS = http.h mpd.h muxing.h output.h vendor/arr/arr.h
 MPDCAT_SOURCES = http.c mpd.c muxing.c output.c vendor/arr/arr.c mpdcat.c
-bin/mpdcat: bin/ $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
+$(BINARY_DIR)/mpdcat: $(BINARY_DIR) $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
 	$(CC) $(CFLAGS) $(MPDCAT_LIBS) $(MPDCAT_SOURCES) -o$@
-.PHONY: mpdcat
-mpdcat: bin/mpdcat
 
 TEST_SOURCES = \
     *_test.c \
@@ -34,17 +37,14 @@ TEST_SOURCES = \
     mpd.c \
     output.c \
     vendor/arr/arr.c
-bin/test: bin/ $(TEST_SOURCES)
+$(BINARY_DIR)/test: $(BINARY_DIR) $(TEST_SOURCES)
 	$(CC) $(CFLAGS) -lcurl -lmxml vendor/scut/scut.c unittest.c $(TEST_SOURCES) -o$@
 
-.PHONY: test
-test: bin/test
+test: $(BINARY_DIR)/test
 	$<
 
-.PHONY: memcheck
-memcheck: bin/test
+memcheck: $(BINARY_DIR)/test
 	valgrind $<
 
-.PHONY: indent
 indent:
 	clang-format -i -style=file *.h *.c
