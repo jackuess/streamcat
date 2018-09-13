@@ -9,17 +9,24 @@ else
 	CFLAGS += -DNDEBUG
 endif
 
+bin/:
+	mkdir $@
+
 STREAMCAT_LIBS = -lcurl
 STREAMCAT_HEADERS = output.h streamlisting.h
 STREAMCAT_SOURCES = output.c streamlisting.c streamcat.c
-streamcat: $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
+bin/streamcat: bin/ $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
 	$(CC) $(CFLAGS) $(STREAMCAT_LIBS) $(STREAMCAT_SOURCES) -o$@
+.PHONY: streamcat
+streamcat: bin/streamcat
 
 MPDCAT_LIBS = -lavcodec -lavformat -lavutil -lcurl -lmxml
 MPDCAT_HEADERS = http.h mpd.h muxing.h output.h vendor/arr/arr.h
 MPDCAT_SOURCES = http.c mpd.c muxing.c output.c vendor/arr/arr.c mpdcat.c
-mpdcat: $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
+bin/mpdcat: bin/ $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
 	$(CC) $(CFLAGS) $(MPDCAT_LIBS) $(MPDCAT_SOURCES) -o$@
+.PHONY: mpdcat
+mpdcat: bin/mpdcat
 
 TEST_SOURCES = \
     *_test.c \
@@ -27,10 +34,16 @@ TEST_SOURCES = \
     mpd.c \
     output.c \
     vendor/arr/arr.c
-.PHONY: test
-test:
+bin/test: bin/ $(TEST_SOURCES)
 	$(CC) $(CFLAGS) -lcurl -lmxml vendor/scut/scut.c unittest.c $(TEST_SOURCES) -o$@
-	valgrind ./$@
+
+.PHONY: test
+test: bin/test
+	$<
+
+.PHONY: memcheck
+memcheck: bin/test
+	valgrind $<
 
 .PHONY: indent
 indent:
