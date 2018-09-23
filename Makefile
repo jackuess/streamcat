@@ -12,7 +12,7 @@ endif
 BINARY_DIR = bin
 BINARIES = $(BINARY_DIR)/mpdcat $(BINARY_DIR)/streamcat
 
-.PHONY: build test memcheck indent
+.PHONY: build clean indent memcheck test
 
 all: $(BINARIES)
 
@@ -48,3 +48,6 @@ memcheck: $(BINARY_DIR)/test
 
 indent:
 	clang-format -i -style=file *.h *.c
+
+clean:
+	rm -r $(BINARY_DIR)/
