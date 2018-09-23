@@ -41,7 +41,7 @@ void test_mpd_manifest_parse_time(struct TestResult *tr) {
                            "  </Period>"
                            "</MPD>";
     // clang-format on
-    struct MPD *mpd = mpd_parse(manifest);
+    struct MPD *mpd = mpd_parse(manifest, "http://foo.bar/manifest.mpd");
     struct Representation *representations = NULL;
     size_t n_representations = mpd_get_representations(&representations, mpd);
 
@@ -62,37 +62,37 @@ void test_mpd_manifest_parse_time(struct TestResult *tr) {
     }
 
     mpd_get_url(
-        &url, "http://foo.bar/", &representations[3], INITIALIZATION_URL, 0);
+        &url, &representations[3], INITIALIZATION_URL, 0);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr4_init.m4s");
     free(url);
 
     next_start =
-        mpd_get_url(&url, "http://foo.bar/", &representations[3], MEDIA_URL, 0);
+        mpd_get_url(&url, &representations[3], MEDIA_URL, 0);
     ASSERT_EQ(tr, next_start, 900000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr4_t0.m4s");
     free(url);
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[3], MEDIA_URL, next_start);
+        &url, &representations[3], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 1800000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr4_t900000.m4s");
     free(url);
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[2], MEDIA_URL, next_start);
+        &url, &representations[2], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 2700000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr3_t1800000.m4s");
     free(url);
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
+        &url, &representations[1], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 3600000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr2_t2700000.m4s");
     free(url);
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[0], MEDIA_URL, next_start);
+        &url, &representations[0], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 4424400);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/video_repr1_t3600000.m4s");
     free(url);
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
+        &url, &representations[1], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 0);
 
     free(representations);
@@ -136,7 +136,7 @@ void test_mpd_manifest_parse_numbers(struct TestResult *tr) {
                            "  </Period>"
                            "  </MPD>";
     // clang-format on
-    struct MPD *mpd = mpd_parse(manifest);
+    struct MPD *mpd = mpd_parse(manifest, "http://foo.bar/manifest.mpd");
     struct Representation *representations;
     size_t n_representations = mpd_get_representations(&representations, mpd);
 
@@ -155,53 +155,53 @@ void test_mpd_manifest_parse_numbers(struct TestResult *tr) {
     }
 
     mpd_get_url(
-        &url, "http://foo.bar/", &representations[2], INITIALIZATION_URL, 0);
+        &url, &representations[2], INITIALIZATION_URL, 0);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00000.m4v");
     free(url);
 
     next_start =
-        mpd_get_url(&url, "http://foo.bar/", &representations[2], MEDIA_URL, 0);
+        mpd_get_url(&url, &representations[2], MEDIA_URL, 0);
     ASSERT_EQ(tr, next_start, 150000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00001.m4v");
     free(url);
 
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[2], MEDIA_URL, next_start);
+        &url, &representations[2], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 300000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00002.m4v");
     free(url);
 
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[2], MEDIA_URL, next_start);
+        &url, &representations[2], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 450000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00003.m4v");
     free(url);
 
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[2], MEDIA_URL, 300001);
+        &url, &representations[2], MEDIA_URL, 300001);
     ASSERT_EQ(tr, next_start, 450000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00003.m4v");
     free(url);
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[2], MEDIA_URL, 449999);
+        &url, &representations[2], MEDIA_URL, 449999);
     ASSERT_EQ(tr, next_start, 450000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr3/repr3_00003.m4v");
     free(url);
 
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
+        &url, &representations[1], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 600000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr2/repr2_00004.m4v");
     free(url);
 
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[0], MEDIA_URL, next_start);
+        &url, &representations[0], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 729000);
     ASSERT_STR_EQ(tr, url, "http://foo.bar/repr1/repr1_00005.m4v");
     free(url);
 
     next_start = mpd_get_url(
-        &url, "http://foo.bar/", &representations[1], MEDIA_URL, next_start);
+        &url, &representations[1], MEDIA_URL, next_start);
     ASSERT_EQ(tr, next_start, 0);
 
     free(representations);

@@ -169,6 +169,7 @@ void url_template_free(URLTemplate template) {
 struct MPD {
     struct AdaptationSet *adaptation_sets;
     mxml_node_t *_doc;
+    char *origin_url;
 };
 
 struct SegmentTime {
@@ -233,8 +234,9 @@ struct SegmentTemplate get_segment_template(mxml_node_t *adaptation_set) {
     return template;
 }
 
-struct MPD *mpd_parse(const char *buffer) {
+struct MPD *mpd_parse(const char *buffer, const char *origin_url) {
     struct MPD *mpd = calloc(1, sizeof(struct MPD));
+    mpd->origin_url = strdup(origin_url);
     const char *TAG_ADAPTATION_SET = "AdaptationSet";
     const char *TAG_REPRESENTATION = "Representation";
     struct AdaptationSet *sets = arrnew(0, sizeof(sets[0]));
@@ -266,6 +268,7 @@ struct MPD *mpd_parse(const char *buffer) {
                                      NULL,
                                      MXML_NO_DESCEND)) {
             struct Representation *r = ARRAPPEND(&new_set->representations);
+            r->origin_url = mpd->origin_url;
             r->id = mxmlElementGetAttr(rnode, "id");
             r->bandwidth =
                 strtol(mxmlElementGetAttr(rnode, "bandwidth"), NULL, 10);
@@ -315,6 +318,7 @@ void mpd_free(struct MPD *mpd) {
     }
     arrfree(mpd->adaptation_sets);
     mxmlDelete(mpd->_doc);
+    free(mpd->origin_url);
     free(mpd);
 }
 
@@ -350,7 +354,6 @@ size_t mpd_get_url_count(const struct Representation *repr) {
 }
 
 long mpd_get_url(char **url,
-                 const char *base_url,
                  const struct Representation *repr,
                  enum URL_TYPE url_type,
                  long time) {
@@ -379,7 +382,7 @@ long mpd_get_url(char **url,
 
             char *relative_url = url_template_format(
                 template, repr->id, n + offset, repr->bandwidth, start);
-            *url = urljoin(base_url, relative_url);
+            *url = urljoin(repr->origin_url, relative_url);
             free(relative_url);
 
             next = start + t->part_duration;

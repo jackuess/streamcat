@@ -61,7 +61,7 @@ struct CMD parse_args(int argc, char *argv[argc + 1]) {
     return cmd;
 }
 
-_Bool get_mpd(struct MPD **mpd, char **effective_url, const struct CMD *cmd) {
+_Bool get_mpd(struct MPD **mpd, const struct CMD *cmd) {
     struct Response resp = http_get(cmd->manifesturl);
     if (!resp.ok) {
         response_free(&resp);
@@ -71,12 +71,8 @@ _Bool get_mpd(struct MPD **mpd, char **effective_url, const struct CMD *cmd) {
         fprintf(stderr, "Downloaded manifest from: %s\n", resp.effective_url);
         fprintf(stderr, "MANIFEST:%s\n", resp.data);
     }
-    size_t urllen = strlen(resp.effective_url) + 1;
-    *effective_url = malloc(urllen);
-    strcpy(*effective_url, resp.effective_url);
-    effective_url[urllen] = '\0';
 
-    *mpd = mpd_parse(resp.data);
+    *mpd = mpd_parse(resp.data, resp.effective_url);
     response_free(&resp);
 
     return mpd != NULL;
@@ -114,24 +110,24 @@ void fprintrepr(FILE *f, size_t index, const struct Representation *repr) {
     char bandwidthstr[14];
     formatbandwidth(bandwidthstr, repr->bandwidth);
     fprintf(f,
-            "%ld\tmimetype: %s\tbandwidth: %s\n",
+            "%ld\t%s\t%s\t%s\n",
             index,
             repr->mime_type,
-            bandwidthstr);
+            bandwidthstr,
+            repr->origin_url);
 }
 
 void fprintrepr_urls(FILE *f,
-                     const char *base_url,
                      const struct Representation *repr) {
     char *output_url;
     long start = 0;
 
-    mpd_get_url(&output_url, base_url, repr, INITIALIZATION_URL, start);
+    mpd_get_url(&output_url, repr, INITIALIZATION_URL, start);
     fprintf(f, "%s\n", output_url);
     free(output_url);
 
     while (
-        (start = mpd_get_url(&output_url, base_url, repr, MEDIA_URL, start))) {
+        (start = mpd_get_url(&output_url, repr, MEDIA_URL, start))) {
         fprintf(f, "%s\n", output_url);
         free(output_url);
     }
@@ -143,7 +139,6 @@ curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
 }
 
 int concat_representations(FILE *f,
-                           const char *base_url,
                            const struct Representation *repr,
                            void (*on_part_downloaded)(size_t n_parts_total,
                                                       size_t n_parts,
@@ -168,7 +163,7 @@ int concat_representations(FILE *f,
         goto finally;
     }
 
-    mpd_get_url(&url, base_url, repr, INITIALIZATION_URL, start);
+    mpd_get_url(&url, repr, INITIALIZATION_URL, start);
     if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
         goto finally;
     }
@@ -177,7 +172,7 @@ int concat_representations(FILE *f,
     }
     free(url);
     size_t n_parts_total = mpd_get_url_count(repr);
-    while ((start = mpd_get_url(&url, base_url, repr, MEDIA_URL, start))) {
+    while ((start = mpd_get_url(&url, repr, MEDIA_URL, start))) {
         if (CURLE_OK !=
             (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
             goto finally;
@@ -251,10 +246,8 @@ int main(int argc, char *argv[argc + 1]) {
     curl_global_init(0);
 
     struct MPD *mpd = NULL;
-    char *effective_url = NULL;
-    success = get_mpd(&mpd, &effective_url, &cmd);
+    success = get_mpd(&mpd, &cmd);
     if (!success) {
-        free(effective_url);
         return 2;
     }
 
@@ -276,8 +269,7 @@ int main(int argc, char *argv[argc + 1]) {
 
     if (cmd.mode == PRINT_REPR_URLS) {
         for (size_t i = 0; i < arrlen(cmd.repr_index); i++) {
-            fprintrepr_urls(
-                stdout, effective_url, &representations[cmd.repr_index[i]]);
+            fprintrepr_urls(stdout, &representations[cmd.repr_index[i]]);
         }
     } else if (cmd.mode == DOWNLOAD_REPR_URLS) {
         unsigned int n_files = (unsigned int)arrlen(cmd.repr_index);
@@ -320,9 +312,8 @@ int main(int argc, char *argv[argc + 1]) {
                 meta.progress_bar[j] = ' ';
             }
 
-            if (concat_representations(
-                    f, effective_url, repr, &print_progress, &meta) !=
-                CURLE_OK) {
+            if (concat_representations(f, repr, &print_progress, &meta) !=
+                    CURLE_OK) {
                 fprintf(stderr,
                         "Could not download index %ld\n",
                         cmd.repr_index[i]);
@@ -344,7 +335,6 @@ int main(int argc, char *argv[argc + 1]) {
 
 finally:
     arrfree(cmd.repr_index);
-    free(effective_url);
     free(representations);
     mpd_free(mpd);
 
