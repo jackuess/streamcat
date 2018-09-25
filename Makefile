@@ -32,6 +32,7 @@ $(BINARY_DIR)/mpdcat: $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
 
 TEST_SOURCES = \
     *_test.c \
+    hls.c \
     http.c \
     mpd.c \
     output.c \
