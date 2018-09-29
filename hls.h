@@ -12,9 +12,22 @@ enum HLSPlaylistType {
     HLS_MEDIA_PLAYLIST
 };
 
+enum CodecMediaType {
+    CODEC_AUDIO,
+    CODEC_VIDEO,
+    CODEC_UNKNOWN
+};
+
+struct HLSCodec {
+    const char *name;
+    enum CodecMediaType codec_media_type;
+};
+
 struct HLSVariantStream {
     uint64_t *bandwidth;
     const char *url;
+    struct HLSCodec *codecs;
+    size_t num_codecs;
 };
 
 struct HLSMediaSegment {
@@ -32,7 +45,6 @@ uint64_t hls_get_media_segment(struct HLSMediaSegment **segment,
 size_t hls_media_segments_len(const HLSPlaylist *playlist);
 size_t hls_get_variant_streams(struct HLSVariantStream **streams,
                                const HLSPlaylist *playlist);
-void hls_variant_streams_free(struct HLSVariantStream *streams);
 void hls_playlist_free(HLSPlaylist *playlist);
 
 #endif // hls_h_INCLUDED

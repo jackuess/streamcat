@@ -9,10 +9,11 @@
 #include "vendor/arr/arr.h"
 
 #include "hls.h"
+#include "string.h"
 
 union HLSTagAttributeData {
     uint64_t integer;
-    const char *string;
+    char *string;
 };
 
 enum HLSTagDataType {
@@ -77,6 +78,7 @@ struct HLSPlaylist {
     char *data;
     struct HLSLine *lines;
     struct HLSMediaSegment *media_segments;
+    struct HLSVariantStream *variant_streams;
 };
 
 HLSPlaylist *hls_playlist_new() {
@@ -113,12 +115,33 @@ static void parse_tag_attributes(struct HLSTag *tag, char *data) {
         attr->name = data;
 
         data = ++c;
-        for (; *c != ',' && *c != '\0'; c++) {}
+
+        if (*c == '\0') {
+            break;
+        }
+        char endtag_char = ',';
+        if (*c == '"') {
+            endtag_char = '"';
+            c++;
+        }
+
+        for (; *c != endtag_char && *c != '\0'; c++) {}
+        if (endtag_char == '"') {
+            if (*c == '\0') {
+                eol = true;
+            } else {
+                c++;
+            }
+        }
         if (*c == '\0') {
             eol = true;
         }
         *c = '\0';
-        if (isdigit(data[0])) {
+        if (endtag_char == '"') {
+            attr->data_type = HLS_STRING_TAG;
+            data[strlen(data)-1] = '\0';
+            attr->data.string = &data[1];
+        } else {
             attr->data_type = HLS_INTEGER_TAG;
             attr->data.integer = strtoul(data, NULL, 10);
         }
@@ -179,6 +202,16 @@ static uint64_t *hls_tag_get_attribute_uint64(struct HLSTag *tag, const char *at
     return NULL;
 }
 
+static char *hls_tag_get_attribute_string(struct HLSTag *tag, const char *attr) {
+    for (size_t i = 0; i < arrlen(tag->attributes); i++) {
+        if (tag->attributes[i].data_type == HLS_STRING_TAG &&
+                strcmp(tag->attributes[i].name, attr) == 0) {
+            return tag->attributes[i].data.string;
+        }
+    }
+    return NULL;
+}
+
 static struct HLSLine *hls_get_lines(char *data) {
     char *rest = data;
     char *token = NULL;
@@ -205,7 +238,7 @@ static struct HLSLine *hls_get_lines(char *data) {
     return lines;
 }
 
-static struct HLSMediaSegment *parse_media_segments(struct HLSLine *lines) {
+static struct HLSMediaSegment *parse_media_segments(const struct HLSLine *lines) {
     struct HLSMediaSegment *arr_segments = arrnew(0, sizeof arr_segments[0]);
     uint64_t *current_duration = NULL;
     size_t time = 0;
@@ -229,8 +262,68 @@ static struct HLSMediaSegment *parse_media_segments(struct HLSLine *lines) {
     return arr_segments;
 }
 
-enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist, const char *buffer,
-                        size_t buffer_n) {
+static struct HLSCodec *parse_codecs(char *data) {
+    struct HLSCodec *codecs = arrnew(0, sizeof codecs[0]);
+
+    bool eol = false;
+    char *c = data;
+    while (!eol) {
+        struct HLSCodec *codec = ARRAPPEND(&codecs);
+        for (; *c != ',' && *c != '\0'; c++) {}
+        if (*c == '\0') {
+            eol = true;
+        } else {
+            *c = '\0';
+        }
+
+        codec->name = data;
+        codec->codec_media_type = CODEC_UNKNOWN;
+        if (str_starts_with(codec->name, "mp4a")) {
+            codec->codec_media_type = CODEC_AUDIO;
+        } else if (str_starts_with(codec->name, "avc1")) {
+            codec->codec_media_type = CODEC_VIDEO;
+        }
+
+        c++;
+        data = c;
+    }
+
+    return codecs;
+}
+
+static struct HLSVariantStream *parse_variant_streams(const struct HLSLine *lines) {
+    struct HLSVariantStream *streams = arrnew(0, sizeof streams[0]);
+    uint64_t *current_bandwidth = NULL;
+    char *current_codec_string = NULL;
+
+    for (size_t i = 0; i < arrlen(lines); i++) {
+        if (lines[i].is_tag) {
+            struct HLSTag *tag = lines[i].tag;
+            if (tag->type == HLS_EXT_X_STREAM_INF) {
+                current_bandwidth = hls_tag_get_attribute_uint64(tag, "BANDWIDTH");
+                current_codec_string = hls_tag_get_attribute_string(tag, "CODECS");
+            }
+        } else {
+            struct HLSVariantStream *stream = ARRAPPEND(&streams);
+            stream->url = lines[i].data;
+            stream->bandwidth = current_bandwidth;
+            if (current_codec_string == NULL) {
+                stream->codecs = parse_codecs("");
+            } else {
+                stream->codecs = parse_codecs(current_codec_string);
+            }
+            stream->num_codecs = arrlen(stream->codecs);
+            current_bandwidth = NULL;
+            current_codec_string = NULL;
+        }
+    }
+
+    return streams;
+}
+
+enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist,
+                                        const char *buffer,
+                                        size_t buffer_n) {
     playlist->data = strndup(buffer, buffer_n);
     playlist->lines = hls_get_lines(playlist->data);
     if (playlist->lines == NULL) {
@@ -246,6 +339,7 @@ enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist, const char *buffe
         }
     }
 
+    playlist->variant_streams = parse_variant_streams(playlist->lines);
     return HLS_MASTER_PLAYLIST;
 }
 
@@ -265,6 +359,9 @@ static int get_media_segment_time_collision(const void *key, const void *value) 
 uint64_t hls_get_media_segment(struct HLSMediaSegment **segment,
                                const HLSPlaylist *playlist,
                                uint64_t start_time) {
+    if (playlist->media_segments == NULL) {
+        return 0;
+    }
     size_t num_media_segments = arrlen(playlist->media_segments);
     *segment = bsearch(&start_time,
                        playlist->media_segments,
@@ -284,37 +381,13 @@ size_t hls_media_segments_len(const HLSPlaylist *playlist) {
     return arrlen(playlist->media_segments);
 }
 
-size_t hls_get_variant_streams(struct HLSVariantStream **streams,
+size_t hls_get_variant_streams(struct HLSVariantStream **variant_streams,
                                const HLSPlaylist *playlist) {
-    size_t n_streams = 0;
-    struct HLSVariantStream *arr_streams = arrnew(0, sizeof arr_streams[0]);
-    uint64_t *current_bandwidth = NULL;
-
-    for (size_t i = 0; i < arrlen(playlist->lines); i++) {
-        if (playlist->lines[i].is_tag) {
-            struct HLSTag *tag = playlist->lines[i].tag;
-            if (tag->type == HLS_EXT_X_STREAM_INF) {
-                current_bandwidth = hls_tag_get_attribute_uint64(tag, "BANDWIDTH");
-            }
-        } else {
-            struct HLSVariantStream *stream = ARRAPPEND(&arr_streams);
-            stream->url = playlist->lines[i].data;
-            stream->bandwidth = current_bandwidth;
-            n_streams++;
-            current_bandwidth = NULL;
-        }
+    if (playlist->variant_streams == NULL) {
+        return 0;
     }
-
-    size_t arr_s = arrlen(arr_streams) * sizeof arr_streams[0];
-    *streams = malloc(arr_s);
-    memcpy(*streams, arr_streams, arr_s);
-    arrfree(arr_streams);
-
-    return n_streams;
-}
-
-void hls_variant_streams_free(struct HLSVariantStream *streams) {
-    free(streams);
+    *variant_streams = playlist->variant_streams;
+    return arrlen(playlist->variant_streams);
 }
 
 void hls_playlist_free(HLSPlaylist *playlist) {
@@ -328,6 +401,12 @@ void hls_playlist_free(HLSPlaylist *playlist) {
     arrfree(playlist->lines);
     if (playlist->media_segments != NULL) {
         arrfree(playlist->media_segments);
+    }
+    if (playlist->variant_streams != NULL) {
+        for (size_t i = 0; i < arrlen(playlist->variant_streams); i++) {
+            arrfree(playlist->variant_streams[i].codecs);
+        }
+        arrfree(playlist->variant_streams);
     }
     free(playlist);
 }
