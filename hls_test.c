@@ -42,7 +42,7 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
 
 void test_hls_parse_media_playlist(struct TestResult *tr) {
     HLSPlaylist *playlist = hls_playlist_new();
-    struct HLSMediaSegment *segments = NULL;
+    struct HLSMediaSegment *segment = NULL;
     const char *data =
         "#EXTM3U\n"
         "#EXT-X-TARGETDURATION:10\n"
@@ -59,16 +59,26 @@ void test_hls_parse_media_playlist(struct TestResult *tr) {
                                                             strlen(data));
     ASSERT_EQ(tr, playlist_type, HLS_MEDIA_PLAYLIST);
 
-    size_t n_media_segments = hls_get_media_segments(&segments, playlist);
-
+    size_t n_media_segments = hls_media_segments_len(playlist);
     ASSERT_EQ(tr, n_media_segments, 3);
-    ASSERT_STR_EQ(tr, segments[0].url, "http://media.example.com/first.ts");
-    ASSERT_EQ(tr, *(segments[0].duration), 9009);
-    ASSERT_STR_EQ(tr, segments[1].url, "http://media.example.com/second.ts");
-    ASSERT_EQ(tr, *(segments[0].duration), 9009);
-    ASSERT_STR_EQ(tr, segments[2].url, "http://media.example.com/third.ts");
-    ASSERT_EQ(tr, *(segments[2].duration), 303000);
 
-    hls_media_segments_free(segments);
+    uint64_t next_start = hls_get_media_segment(&segment, playlist, 0);
+    ASSERT_STR_EQ(tr, segment->url, "http://media.example.com/first.ts");
+    ASSERT_EQ(tr, next_start, 9009);
+    ASSERT_EQ(tr, segment->duration, 9009);
+
+    hls_get_media_segment(&segment, playlist, next_start);
+    ASSERT_STR_EQ(tr, segment->url, "http://media.example.com/second.ts");
+    ASSERT_EQ(tr, segment->duration, 9009);
+    next_start = hls_get_media_segment(&segment, playlist, next_start + 1000);
+    ASSERT_STR_EQ(tr, segment->url, "http://media.example.com/second.ts");
+    ASSERT_EQ(tr, segment->duration, 9009);
+    ASSERT_EQ(tr, next_start, 18018);
+
+    next_start = hls_get_media_segment(&segment, playlist, next_start);
+    ASSERT_STR_EQ(tr, segment->url, "http://media.example.com/third.ts");
+    ASSERT_EQ(tr, segment->duration, 303000);
+    ASSERT_EQ(tr, next_start, 0);
+
     hls_playlist_free(playlist);
 }

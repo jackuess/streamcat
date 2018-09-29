@@ -18,16 +18,18 @@ struct HLSVariantStream {
 };
 
 struct HLSMediaSegment {
-    uint64_t *duration;
+    uint64_t duration;
+    size_t start_time;
     const char *url;
 };
 
 HLSPlaylist *hls_playlist_new();
 enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist, const char *buffer,
                         size_t buffer_n);
-size_t hls_get_media_segments(struct HLSMediaSegment **segments,
-                              const HLSPlaylist *playlist);
-void hls_media_segments_free(struct HLSMediaSegment *segments);
+uint64_t hls_get_media_segment(struct HLSMediaSegment **segment,
+                               const HLSPlaylist *playlist,
+                               uint64_t start_time);
+size_t hls_media_segments_len(const HLSPlaylist *playlist);
 size_t hls_get_variant_streams(struct HLSVariantStream **streams,
                                const HLSPlaylist *playlist);
 void hls_variant_streams_free(struct HLSVariantStream *streams);
