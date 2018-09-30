@@ -12,7 +12,7 @@ endif
 BINARY_DIR = bin
 BINARIES = $(BINARY_DIR)/mpdcat $(BINARY_DIR)/streamcat
 
-.PHONY: build clean indent memcheck test
+.PHONY: build clean indent memcheck scan test
 
 all: $(BINARIES)
 
@@ -52,3 +52,6 @@ indent:
 
 clean:
 	rm -r $(BINARY_DIR)/
+
+scan: clean
+	scan-build $(MAKE) test
