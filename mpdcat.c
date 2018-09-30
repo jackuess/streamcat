@@ -259,14 +259,12 @@ int main(int argc, char *argv[argc + 1]) {
           sizeof(representations[0]),
           &cmp_repr);
 
-    for (size_t i = 0; i < num_representations; i++) {
-        if (cmd.verbose) {
-            fprintrepr(stderr, i, &representations[i]);
-        } else if (cmd.mode == LIST_REPRS) {
-            fprintrepr(stdout, i, &representations[i]);
+    if ((cmd.mode == LIST_REPRS) || cmd.verbose) {
+        FILE *f = cmd.verbose ? stderr : stdout;
+        for (size_t i = 0; i < num_representations; i++) {
+            fprintrepr(f, i, &representations[i]);
         }
     }
-
     if (cmd.mode == PRINT_REPR_URLS) {
         for (size_t i = 0; i < arrlen(cmd.repr_index); i++) {
             fprintrepr_urls(stdout, &representations[cmd.repr_index[i]]);
