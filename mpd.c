@@ -278,15 +278,17 @@ struct MPD *mpd_parse(const char *buffer, const char *origin_url) {
                 NULL) {
                 r->mime_type = new_set->mime_type;
             }
+
             const char *codecsAttr = NULL;
+            char *codecs = NULL;
             if ((codecsAttr = mxmlElementGetAttr(rnode, "codecs")) == NULL) {
-                r->codecs = NULL;
-                r->num_codecs = 0;
+                codecs = strdup("");
             } else {
-                char *codecs = strdup(codecsAttr);
-                r->codecs = parse_csv_codecs(codecs);
-                r->num_codecs = arrlen(r->codecs);
+                codecs = strdup(codecsAttr);
             }
+            r->codecs = parse_csv_codecs(codecs);
+            r->num_codecs = arrlen(r->codecs);
+
             mxml_node_t *t = mxmlFindElement(rnode,
                                              rnode,
                                              "SegmentTemplate",

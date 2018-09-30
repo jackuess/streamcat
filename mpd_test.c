@@ -24,7 +24,7 @@ void test_mpd_manifest_parse_time(struct TestResult *tr) {
                            "      <Representation id=\"repr4\" bandwidth=\"251953\" width=\"512\" height=\"288\" codecs=\"avc1.42c015\" sar=\"1:1\"/>"
                            "      <Representation id=\"repr5\" bandwidth=\"359979\" width=\"512\" height=\"288\" codecs=\"avc1.42c015\" sar=\"1:1\"/>"
                            "      <Representation id=\"repr6\" bandwidth=\"539937\" width=\"512\" height=\"288\" codecs=\"avc1.42c015\" sar=\"1:1\"/>"
-                           "      <Representation id=\"repr7\" bandwidth=\"891903\" width=\"768\" height=\"432\" codecs=\"avc1.4d401e\" sar=\"1:1\"/>"
+                           "      <Representation id=\"repr7\" bandwidth=\"891903\" width=\"768\" height=\"432\" sar=\"1:1\"/>"
                            "    </AdaptationSet>"
                            "    <AdaptationSet id=\"1\" mimeType=\"audio/mp4\" segmentAlignment=\"true\" startWithSAP=\"1\" group=\"2\" lang=\"sv\" subsegmentAlignment=\"true\" subsegmentStartsWithSAP=\"1\">"
                            "      <AudioChannelConfiguration schemeIdUri=\"urn:mpeg:dash:23003:3:audio_channel_configuration:2011\" value=\"2\"/>"
@@ -55,6 +55,9 @@ void test_mpd_manifest_parse_time(struct TestResult *tr) {
     ASSERT_STR_EQ(tr, representations[3].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[4].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[6].mime_type, "video/mp4");
+    ASSERT_EQ(tr, representations[6].num_codecs, 1);
+    ASSERT_EQ(tr, representations[6].codecs[0].codec_media_type, CODEC_UNKNOWN);
+    ASSERT_STR_EQ(tr, representations[6].codecs[0].name, "");
     ASSERT_STR_EQ(tr, representations[7].mime_type, "audio/mp4");
     ASSERT_EQ(tr, representations[7].num_codecs, 1);
     ASSERT_EQ(tr, representations[7].codecs[0].codec_media_type, CODEC_AUDIO);
