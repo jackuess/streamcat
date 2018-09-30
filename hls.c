@@ -252,7 +252,12 @@ static struct HLSMediaSegment *parse_media_segments(const struct HLSLine *lines)
         } else {
             struct HLSMediaSegment *segment = ARRAPPEND(&arr_segments);
             segment->url = lines[i].data;
-            segment->duration = *current_duration;
+            if (current_duration == NULL) {
+                // TODO(Jacques): Handle this as an error case - segments must have a duration
+                segment->duration = 0;
+            } else {
+                segment->duration = *current_duration;
+            }
             segment->start_time = time;
             current_duration = NULL;
             time += segment->duration;
