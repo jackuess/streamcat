@@ -24,8 +24,8 @@ $(BINARY_DIR)/streamcat: $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
 	$(CC) $(CFLAGS) $(STREAMCAT_LIBS) $(STREAMCAT_SOURCES) -o$@
 
 MPDCAT_LIBS = -lavcodec -lavformat -lavutil -lcurl -lmxml
-MPDCAT_HEADERS = http.h mpd.h muxing.h output.h vendor/arr/arr.h
-MPDCAT_SOURCES = http.c mpd.c muxing.c output.c vendor/arr/arr.c mpdcat.c
+MPDCAT_HEADERS = codec.h http.h mpd.h muxing.h output.h vendor/arr/arr.h
+MPDCAT_SOURCES = codec.c http.c mpd.c muxing.c output.c vendor/arr/arr.c mpdcat.c
 $(BINARY_DIR)/mpdcat: $(MPDCAT_HEADERS) $(MPDCAT_SOURCES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(MPDCAT_LIBS) $(MPDCAT_SOURCES) -o$@
