@@ -107,12 +107,13 @@ char *url_template_format(const URLTemplate template,
                           long number,
                           long bandwidth,
                           long time) {
-    char *result_parts[arrlen(template)];
+    size_t num_template_parts = arrlen(template);
+    char **result_parts = malloc(num_template_parts * sizeof result_parts[0]);
     size_t result_parts_len = 0;
     long *replacement = NULL;
     struct URLTemplatePair *pair;
 
-    for (size_t i = 0; i < arrlen(template); i++) {
+    for (size_t i = 0; i < num_template_parts; i++) {
         pair = &template[i];
         if (pair->replacement_id == _UNDEFINED) {
             size_t fmt_len = strlen(pair->fmt_string);
@@ -148,12 +149,13 @@ char *url_template_format(const URLTemplate template,
 
     char *result = malloc(result_parts_len * sizeof(char *) + 1);
     size_t result_len = 0;
-    for (size_t i = 0; i < arrlen(template); i++) {
+    for (size_t i = 0; i < num_template_parts; i++) {
         for (size_t j = 0; result_parts[i][j] != '\0'; j++) {
             result[result_len++] = result_parts[i][j];
         }
         free(result_parts[i]);
     }
+    free(result_parts);
     result[result_len] = '\0';
 
     return result;
