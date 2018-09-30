@@ -118,7 +118,7 @@ char *url_template_format(const URLTemplate template,
         if (pair->replacement_id == _UNDEFINED) {
             size_t fmt_len = strlen(pair->fmt_string);
             result_parts_len += fmt_len;
-            result_parts[i] = malloc(sizeof(char *) * fmt_len + 1);
+            result_parts[i] = malloc(fmt_len + 1);
             strcpy(result_parts[i], pair->fmt_string);
         } else {
             if (pair->replacement_id == REPRESENTATION_ID) {
