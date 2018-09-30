@@ -9,7 +9,6 @@
 #include "vendor/arr/arr.h"
 
 #include "hls.h"
-#include "string.h"
 
 union HLSTagAttributeData {
     uint64_t integer;
@@ -267,35 +266,6 @@ static struct HLSMediaSegment *parse_media_segments(const struct HLSLine *lines)
     return arr_segments;
 }
 
-static struct HLSCodec *parse_codecs(char *data) {
-    struct HLSCodec *codecs = arrnew(0, sizeof codecs[0]);
-
-    bool eol = false;
-    char *c = data;
-    while (!eol) {
-        struct HLSCodec *codec = ARRAPPEND(&codecs);
-        for (; *c != ',' && *c != '\0'; c++) {}
-        if (*c == '\0') {
-            eol = true;
-        } else {
-            *c = '\0';
-        }
-
-        codec->name = data;
-        codec->codec_media_type = CODEC_UNKNOWN;
-        if (str_starts_with(codec->name, "mp4a")) {
-            codec->codec_media_type = CODEC_AUDIO;
-        } else if (str_starts_with(codec->name, "avc1")) {
-            codec->codec_media_type = CODEC_VIDEO;
-        }
-
-        c++;
-        data = c;
-    }
-
-    return codecs;
-}
-
 static struct HLSVariantStream *parse_variant_streams(const struct HLSLine *lines) {
     struct HLSVariantStream *streams = arrnew(0, sizeof streams[0]);
     uint64_t *current_bandwidth = NULL;
@@ -313,9 +283,9 @@ static struct HLSVariantStream *parse_variant_streams(const struct HLSLine *line
             stream->url = lines[i].data;
             stream->bandwidth = current_bandwidth;
             if (current_codec_string == NULL) {
-                stream->codecs = parse_codecs("");
+                stream->codecs = parse_csv_codecs("");
             } else {
-                stream->codecs = parse_codecs(current_codec_string);
+                stream->codecs = parse_csv_codecs(current_codec_string);
             }
             stream->num_codecs = arrlen(stream->codecs);
             current_bandwidth = NULL;

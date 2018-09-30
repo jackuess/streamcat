@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include "codec.h"
+
 struct MPD;
 
 struct SegmentTemplate {
@@ -19,6 +21,8 @@ struct Representation {
     const char *mime_type;
     const char *origin_url;
     struct SegmentTemplate segment_template;
+    const struct Codec *codecs;
+    size_t num_codecs;
     // SegmentBase
     // SegmentList
 };

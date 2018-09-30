@@ -278,6 +278,15 @@ struct MPD *mpd_parse(const char *buffer, const char *origin_url) {
                 NULL) {
                 r->mime_type = new_set->mime_type;
             }
+            const char *codecsAttr = NULL;
+            if ((codecsAttr = mxmlElementGetAttr(rnode, "codecs")) == NULL) {
+                r->codecs = NULL;
+                r->num_codecs = 0;
+            } else {
+                char *codecs = strdup(codecsAttr);
+                r->codecs = parse_csv_codecs(codecs);
+                r->num_codecs = arrlen(r->codecs);
+            }
             mxml_node_t *t = mxmlFindElement(rnode,
                                              rnode,
                                              "SegmentTemplate",
@@ -299,6 +308,13 @@ struct MPD *mpd_parse(const char *buffer, const char *origin_url) {
 }
 
 void representation_free(struct Representation *repr) {
+    if (repr->codecs != NULL) {
+        for (size_t i = 0; i < repr->num_codecs; i++) {
+            free((char*)repr->codecs[i].name);
+        }
+        arrfree(repr->codecs);
+    }
+
     if (--(repr->segment_template.timeline_refs) == 0) {
         arrfree(repr->segment_template.timeline);
     }

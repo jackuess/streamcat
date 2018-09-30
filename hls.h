@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "codec.h"
+
 typedef struct HLSPlaylist HLSPlaylist;
 
 enum HLSPlaylistType {
@@ -12,21 +14,10 @@ enum HLSPlaylistType {
     HLS_MEDIA_PLAYLIST
 };
 
-enum CodecMediaType {
-    CODEC_AUDIO,
-    CODEC_VIDEO,
-    CODEC_UNKNOWN
-};
-
-struct HLSCodec {
-    const char *name;
-    enum CodecMediaType codec_media_type;
-};
-
 struct HLSVariantStream {
     uint64_t *bandwidth;
     const char *url;
-    struct HLSCodec *codecs;
+    struct Codec *codecs;
     size_t num_codecs;
 };
 

@@ -47,12 +47,18 @@ void test_mpd_manifest_parse_time(struct TestResult *tr) {
 
     ASSERT_TRUE(tr, n_representations == 8);
     ASSERT_STR_EQ(tr, representations[0].mime_type, "video/mp4");
+    ASSERT_EQ(tr, representations[0].num_codecs, 1);
+    ASSERT_EQ(tr, representations[0].codecs[0].codec_media_type, CODEC_VIDEO);
+    ASSERT_STR_EQ(tr, representations[0].codecs[0].name, "avc1.4d401f");
     ASSERT_STR_EQ(tr, representations[1].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[2].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[3].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[4].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[6].mime_type, "video/mp4");
     ASSERT_STR_EQ(tr, representations[7].mime_type, "audio/mp4");
+    ASSERT_EQ(tr, representations[7].num_codecs, 1);
+    ASSERT_EQ(tr, representations[7].codecs[0].codec_media_type, CODEC_AUDIO);
+    ASSERT_STR_EQ(tr, representations[7].codecs[0].name, "mp4a.40.5");
 
     char *url;
     long next_start = 0;
