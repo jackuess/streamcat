@@ -17,7 +17,7 @@ enum HLSPlaylistType {
 struct HLSVariantStream {
     uint64_t *bandwidth;
     const char *url;
-    struct Codec *codecs;
+    struct SCCodec *codecs;
     size_t num_codecs;
 };
 

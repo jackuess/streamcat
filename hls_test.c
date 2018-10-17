@@ -37,13 +37,13 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
     ASSERT_STR_EQ(tr, streams[0].url, "http://example.com/low.m3u8");
     ASSERT_EQ(tr, streams[0].num_codecs, 1);
     ASSERT_STR_EQ(tr, streams[0].codecs[0].name, "");
-    ASSERT_EQ(tr, streams[0].codecs[0].codec_media_type, CODEC_UNKNOWN);
+    ASSERT_EQ(tr, streams[0].codecs[0].codec_media_type, SC_CODEC_UNKNOWN);
     ASSERT_EQ(tr, *(streams[0].bandwidth), 1280000);
 
     ASSERT_STR_EQ(tr, streams[1].url, "http://example.com/mid.m3u8");
     ASSERT_EQ(tr, streams[1].num_codecs, 1);
     ASSERT_STR_EQ(tr, streams[1].codecs[0].name, "");
-    ASSERT_EQ(tr, streams[0].codecs[0].codec_media_type, CODEC_UNKNOWN);
+    ASSERT_EQ(tr, streams[0].codecs[0].codec_media_type, SC_CODEC_UNKNOWN);
     ASSERT_EQ(tr, *(streams[1].bandwidth), 2560000);
 
     ASSERT_STR_EQ(tr, streams[2].url, "http://example.com/hi.m3u8");
@@ -55,15 +55,15 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
     ASSERT_EQ(tr, *(streams[3].bandwidth), 65000);
     ASSERT_EQ(tr, streams[3].num_codecs, 1);
     ASSERT_STR_EQ(tr, streams[3].codecs[0].name, "mp4a.40.5");
-    ASSERT_EQ(tr, streams[3].codecs[0].codec_media_type, CODEC_AUDIO);
+    ASSERT_EQ(tr, streams[3].codecs[0].codec_media_type, SC_CODEC_AUDIO);
 
     ASSERT_STR_EQ(tr, streams[4].url, "http://example.com/higher.m3u8");
     ASSERT_EQ(tr, *(streams[4].bandwidth), 7680000);
     ASSERT_EQ(tr, streams[4].num_codecs, 2);
     ASSERT_STR_EQ(tr, streams[4].codecs[0].name, "avc1.4d401e");
-    ASSERT_EQ(tr, streams[4].codecs[0].codec_media_type, CODEC_VIDEO);
+    ASSERT_EQ(tr, streams[4].codecs[0].codec_media_type, SC_CODEC_VIDEO);
     ASSERT_STR_EQ(tr, streams[4].codecs[1].name, "mp4a.40.2");
-    ASSERT_EQ(tr, streams[4].codecs[1].codec_media_type, CODEC_AUDIO);
+    ASSERT_EQ(tr, streams[4].codecs[1].codec_media_type, SC_CODEC_AUDIO);
 
     hls_playlist_free(playlist);
 }

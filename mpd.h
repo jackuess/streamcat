@@ -21,7 +21,7 @@ struct Representation {
     const char *mime_type;
     const char *origin_url;
     struct SegmentTemplate segment_template;
-    const struct Codec *codecs;
+    const struct SCCodec *codecs;
     size_t num_codecs;
     // SegmentBase
     // SegmentList
