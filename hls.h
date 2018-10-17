@@ -29,7 +29,7 @@ struct HLSMediaSegment {
 
 HLSPlaylist *hls_playlist_new();
 enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist, const char *buffer,
-                        size_t buffer_n);
+                                        size_t buffer_n);
 uint64_t hls_get_media_segment(struct HLSMediaSegment **segment,
                                const HLSPlaylist *playlist,
                                uint64_t start_time);
