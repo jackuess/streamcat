@@ -62,7 +62,7 @@ struct CMD parse_args(int argc, char *argv[argc + 1]) {
 }
 
 _Bool get_mpd(struct MPD **mpd, const struct CMD *cmd) {
-    struct Response resp = http_get(cmd->manifesturl);
+    struct SCHTTPResponse resp = http_get(cmd->manifesturl);
     if (!resp.ok) {
         response_free(&resp);
         return false;
