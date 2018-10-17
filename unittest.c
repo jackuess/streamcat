@@ -5,6 +5,7 @@ void test_mpd_manifest_parse_time(struct TestResult *tr);
 void test_mpd_manifest_parse_numbers(struct TestResult *tr);
 void test_hls_parse_master_playlist(struct TestResult *tr);
 void test_hls_parse_media_playlist(struct TestResult *tr);
+void test_hls_streamlist_parse_master_playlist(struct TestResult *tr);
 
 int main() {
     void (*test_functions[])(struct TestResult *) = {
@@ -12,7 +13,8 @@ int main() {
         &test_mpd_manifest_parse_time,
         &test_mpd_manifest_parse_numbers,
         &test_hls_parse_master_playlist,
-        &test_hls_parse_media_playlist};
+        &test_hls_parse_media_playlist,
+        &test_hls_streamlist_parse_master_playlist};
 
     struct TestResult *tr =
         t_run(sizeof test_functions / sizeof test_functions[0], test_functions);

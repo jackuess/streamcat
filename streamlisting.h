@@ -1,14 +1,55 @@
 #ifndef streamlisting_h_INCLUDED
 #define streamlisting_h_INCLUDED
 
-struct StreamList {
-    unsigned int n_streams;
-    char *streams[1000];  // TODO(Jacques): Make dynamic
+#include <stdint.h>
+#include <stddef.h>
+
+#include "codec.h"
+
+enum SCErrorCode {
+    SC_SUCCESS,
+    SC_UNKNOW_FORMAT,
+    SC_OUT_OF_MEMORY
+};
+enum SCStreamProtocol {
+    SC_PROTOCOL_HLS,
+    SC_PROTOCOL_MPD
 };
 
-void stream_list_print(FILE *f, const struct StreamList *lst);
-void stream_list_free(struct StreamList *lst);
-struct StreamList *m3u8_get_stream_list(const char *url);
-int concat_streams(FILE *stream, const struct StreamList *lst);
+struct SCStream {
+    enum SCStreamProtocol protocol;
+    const char *url;
+    char *id;
+    uint64_t bitrate;
+    size_t num_codecs;
+    const struct SCCodec *codecs;
+};
+struct SCStreamList {
+    struct SCStream *streams;
+    size_t len;
+    void *private;
+};
+struct SCStreamSegmentData {
+    size_t num_segments;
+    void *private;
+};
+struct SCStreamSegment {
+    const char *url;
+    uint64_t duration;
+};
 
-#endif  // streamlisting_h_INCLUDED
+enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
+                                char *manifest,
+                                size_t manifest_len);
+void sc_streams_free(struct SCStreamList *streams);
+enum SCErrorCode
+sc_get_stream_segment_data(struct SCStreamSegmentData *segment_data,
+                           const struct SCStream *stream,
+                           const char *origin_url,
+                           char *manifest);
+enum SCErrorCode
+sc_get_stream_segment(struct SCStreamSegment *segment,
+                      const struct SCStreamSegmentData *segment_data,
+                      uint64_t *time);
+
+#endif // streamlisting_h_INCLUDED

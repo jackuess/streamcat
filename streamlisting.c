@@ -2,163 +2,42 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <curl/curl.h>
-
-#include "output.h"
+#include "hls.h"
 #include "streamlisting.h"
 
-struct M3U8ParseContext {
-    char *buffer;
-    struct StreamList *streamlst;
-};
+enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
+                                char *manifest,
+                                size_t manifest_len) {
+    struct HLSVariantStream *hls_streams = NULL;
+    HLSPlaylist *playlist = hls_playlist_new();
 
-void stream_list_print(FILE *f, const struct StreamList *lst) {
-    for (unsigned int i = 0; i < lst->n_streams; i++) {
-        fprintf(f, "%d\t%s\n", i, lst->streams[i]);
+    hls_parse_playlist(playlist, manifest, manifest_len);
+    *streams = malloc(sizeof *streams[0]);
+    (*streams)->len = hls_get_variant_streams(&hls_streams, playlist);
+    (*streams)->streams = malloc((*streams)->len * sizeof (*streams)->streams[0]);
+    for (size_t i = 0; i < (*streams)->len; i++) {
+        struct SCStream *strm = &(*streams)->streams[i];
+
+        strm->protocol = SC_PROTOCOL_HLS;
+        strm->url = hls_streams[i].url;
+        strm->bitrate = *hls_streams[i].bandwidth;
+        strm->num_codecs = hls_streams[i].num_codecs;
+        strm->codecs = hls_streams[i].codecs;
+        strm->id = malloc(i % 10 + 2);
+        sprintf(strm->id, "%zu", i + 1);
     }
+    (*streams)->private = playlist;
+
+    return SC_SUCCESS;
 }
 
-void stream_list_free(struct StreamList *lst) {
-    for (unsigned int i = 0; i < lst->n_streams; i++) {
-        free(lst->streams[i]);
+void sc_streams_free(struct SCStreamList *streams) {
+    for (size_t i = 0; i < streams->len; i++) {
+        free(streams->streams[i].id);
     }
-    free(lst);
-}
-
-static size_t
-stream_list_parse_m3u8(char *buffer, size_t size, size_t nmemb, void *userp) {
-    size_t i;
-    size_t realsize = size * nmemb;
-    size_t last_line_start = 0;
-    struct M3U8ParseContext *parsectx = (struct M3U8ParseContext *)userp;
-    struct StreamList *stream_list = parsectx->streamlst;
-
-    for (i = 0; i < realsize; i++) {
-        if (buffer[i] == '\n') {
-            if (parsectx->buffer != NULL) {
-                buffer[i] = '\0';
-                stream_list->streams[stream_list->n_streams] =
-                    malloc(strlen(parsectx->buffer) + i - last_line_start + 1);
-                strcpy(stream_list->streams[stream_list->n_streams],
-                       parsectx->buffer);
-                strcat(stream_list->streams[stream_list->n_streams++],
-                       &buffer[last_line_start]);
-                free(parsectx->buffer);
-                parsectx->buffer = NULL;
-            } else if (buffer[last_line_start] != '#') {
-                buffer[i] = '\0';
-                stream_list->streams[stream_list->n_streams] =
-                    malloc(i - last_line_start + 1);
-                strcpy(stream_list->streams[stream_list->n_streams++],
-                       &buffer[last_line_start]);
-            }
-            last_line_start = i + 1;
-        }
+    if (streams->private != NULL) {
+        hls_playlist_free(streams->private);
     }
-
-    size_t chars_remaining = realsize - last_line_start;
-    if (chars_remaining > 0 && buffer[last_line_start] != '#') {
-        if (parsectx->buffer == NULL) {
-            parsectx->buffer = malloc(chars_remaining + 1);
-            parsectx->buffer[0] = '\0';
-        } else {
-            parsectx->buffer =
-                realloc(parsectx->buffer,
-                        strlen(parsectx->buffer) + chars_remaining + 1);
-        }
-        strncat(parsectx->buffer, &buffer[last_line_start], chars_remaining);
-    }
-
-    return realsize;
-}
-
-struct StreamList *m3u8_get_stream_list(const char *url) {
-    CURL *curl_handle = curl_easy_init();
-    CURLcode res = CURLE_OK;
-    struct M3U8ParseContext *parsectx = malloc(sizeof(struct M3U8ParseContext));
-    parsectx->streamlst = malloc(sizeof(struct StreamList));
-    parsectx->streamlst->n_streams = 0;
-    parsectx->buffer = NULL;
-    struct StreamList *lst = parsectx->streamlst;
-
-    if (!curl_handle) {
-        goto error;
-    }
-    if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
-        goto error;
-    }
-    if (CURLE_OK != (res = curl_easy_setopt(curl_handle,
-                                            CURLOPT_WRITEFUNCTION,
-                                            stream_list_parse_m3u8))) {
-        goto error;
-    }
-
-    if (CURLE_OK != (res = curl_easy_setopt(
-                         curl_handle, CURLOPT_WRITEDATA, (void *)parsectx))) {
-        goto error;
-    }
-
-    if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
-        goto error;
-    }
-    curl_easy_cleanup(curl_handle);
-    free(parsectx->buffer);
-    free(parsectx);
-    return lst;
-
-error:
-    if (res != CURLE_OK)
-        dbg_print("libcurl", "%s\n", curl_easy_strerror(res));
-    if (curl_handle)
-        curl_easy_cleanup(curl_handle);
-    free(parsectx->buffer);
-    stream_list_free(parsectx->streamlst);
-    free(parsectx);
-    return NULL;
-}
-
-static size_t
-curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
-    return fwrite(buffer, size, nmemb, (FILE *)userp);
-}
-
-int concat_streams(FILE *stream, const struct StreamList *lst) {
-    CURL *curl_handle = curl_easy_init();
-    CURLcode res = CURLE_OK;
-    const char *url;
-
-    if (!curl_handle) {
-        goto finally;
-    }
-    if (CURLE_OK != (res = curl_easy_setopt(curl_handle,
-                                            CURLOPT_WRITEFUNCTION,
-                                            curl_write_data))) {
-        goto finally;
-    }
-    if (CURLE_OK != (res = curl_easy_setopt(
-                         curl_handle, CURLOPT_WRITEDATA, (void *)stream))) {
-        goto finally;
-    }
-
-    for (unsigned int i = 0; i < lst->n_streams; i++) {
-        url = lst->streams[i];
-        dbg_print("piratepersist", "downloading %s\n", url);
-
-        if (CURLE_OK !=
-            (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
-            goto finally;
-        }
-        if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
-            goto finally;
-        }
-    }
-
-finally:
-    if (res != CURLE_OK) {
-        dbg_print("libcurl", "%s\n", curl_easy_strerror(res));
-    }
-    if (curl_handle) {
-        curl_easy_cleanup(curl_handle);
-    }
-    return res;
+    free(streams->streams);
+    free(streams);
 }
