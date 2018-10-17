@@ -17,8 +17,8 @@ BINARIES = $(BINARY_DIR)/mpdcat $(BINARY_DIR)/streamcat
 all: $(BINARIES)
 
 STREAMCAT_LIBS = -lcurl
-STREAMCAT_HEADERS = codec.c hls.h streamlisting.h vendor/arr/arr.h
-STREAMCAT_SOURCES = codec.c hls.c streamlisting.c vendor/arr/arr.c streamcat.c
+STREAMCAT_HEADERS = codec.c hls.h http.h output.h streamlisting.h vendor/arr/arr.h
+STREAMCAT_SOURCES = codec.c hls.c http.c output.c streamlisting.c vendor/arr/arr.c streamcat.c
 $(BINARY_DIR)/streamcat: $(STREAMCAT_HEADERS) $(STREAMCAT_SOURCES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(STREAMCAT_LIBS) $(STREAMCAT_SOURCES) -o$@
