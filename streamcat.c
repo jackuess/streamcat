@@ -58,7 +58,7 @@ int main(int argc, char *argv[argc + 1]) {
         return 1;
     }
 
-    curl_global_init(0);
+    curl_global_init(CURL_GLOBAL_ALL);
     struct SCHTTPResponse resp = http_get(argv[1]);
     if (!resp.ok) {
         return 2;
