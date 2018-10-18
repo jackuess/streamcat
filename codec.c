@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdbool.h>
 
 #include "vendor/arr/arr.h"
@@ -28,6 +29,7 @@ struct SCCodec *parse_csv_codecs(char *data) {
         }
 
         c++;
+        for (; !eol && *c != '\0' && isspace(*c); c++) {}
         data = c;
     }
 
