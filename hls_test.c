@@ -24,9 +24,6 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
         "http://example.com/audio-only.m3u8\n"
 
         "#EXT-X-STREAM-INF:CODECS=\"avc1.4d401e,mp4a.40.2\",BANDWIDTH=7680000\n"
-        "http://example.com/higher.m3u8\n"
-
-        "#EXT-X-STREAM-INF:CODECS=\"avc1.4d401e, mp4a.40.2\",BANDWIDTH=7680000\n"
         "http://example.com/higher.m3u8\n";
     enum HLSPlaylistType playlist_type = hls_parse_playlist(playlist,
                                                             data,
@@ -35,7 +32,7 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
 
     size_t n_streams = hls_get_variant_streams(&streams, playlist);
 
-    ASSERT_EQ(tr, n_streams, 6);
+    ASSERT_EQ(tr, n_streams, 5);
 
     ASSERT_STR_EQ(tr, streams[0].url, "http://example.com/low.m3u8");
     ASSERT_EQ(tr, streams[0].num_codecs, 1);
@@ -68,13 +65,26 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
     ASSERT_STR_EQ(tr, streams[4].codecs[1].name, "mp4a.40.2");
     ASSERT_EQ(tr, streams[4].codecs[1].codec_media_type, SC_CODEC_AUDIO);
 
-    ASSERT_STR_EQ(tr, streams[5].url, "http://example.com/higher.m3u8");
-    ASSERT_EQ(tr, *(streams[5].bandwidth), 7680000);
-    ASSERT_EQ(tr, streams[5].num_codecs, 2);
-    ASSERT_STR_EQ(tr, streams[5].codecs[0].name, "avc1.4d401e");
-    ASSERT_EQ(tr, streams[5].codecs[0].codec_media_type, SC_CODEC_VIDEO);
-    ASSERT_STR_EQ(tr, streams[5].codecs[1].name, "mp4a.40.2");
-    ASSERT_EQ(tr, streams[5].codecs[1].codec_media_type, SC_CODEC_AUDIO);
+    hls_playlist_free(playlist);
+}
+
+void test_hls_parse_whitespace_in_codec(struct TestResult *tr) {
+    HLSPlaylist *playlist = hls_playlist_new();
+    struct HLSVariantStream *streams = NULL;
+    const char *data =
+        "#EXTM3U\n"
+        "#EXT-X-STREAM-INF:CODECS=\"avc1.4d401e, mp4a.40.2\",BANDWIDTH=7680000\n"
+        "http://example.com/video.m3u8\n";
+
+    hls_parse_playlist(playlist, data, strlen(data));
+    hls_get_variant_streams(&streams, playlist);
+
+    ASSERT_STR_EQ(tr, streams[0].url, "http://example.com/video.m3u8");
+    ASSERT_EQ(tr, streams[0].num_codecs, 2);
+    ASSERT_STR_EQ(tr, streams[0].codecs[0].name, "avc1.4d401e");
+    ASSERT_EQ(tr, streams[0].codecs[0].codec_media_type, SC_CODEC_VIDEO);
+    ASSERT_STR_EQ(tr, streams[0].codecs[1].name, "mp4a.40.2");
+    ASSERT_EQ(tr, streams[0].codecs[1].codec_media_type, SC_CODEC_AUDIO);
 
     hls_playlist_free(playlist);
 }
