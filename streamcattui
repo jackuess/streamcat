@@ -1,2 +1,10 @@
 #!/usr/bin/env bash
-bin/streamcat $@ | fzf --preview 'echo {} | tr "|" "\n"'
+bin/streamcat $@ | \
+  fzf --tabstop 4 \
+      --delimiter '\t' \
+      --with-nth 1,4,5 \
+      --preview 'echo {} | \
+                   awk '"'"'{
+                     printf "Protocol: %s\nURL: %s\nCodecs: %s\nBitrate: %s kb/s",
+                            $1, $2, $4, $5 / 1000
+                   }'"'"
