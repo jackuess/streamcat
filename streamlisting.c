@@ -94,17 +94,13 @@ void sc_streams_free(struct SCStreamList *streams) {
         }
     }
     if (streams->private != NULL) {
-        struct MPDStreamsPrivate *priv = NULL;;
-        switch (streams->streams[0].protocol) {
-            case SC_PROTOCOL_HLS:
-                hls_playlist_free(streams->private);
-                break;
-            case SC_PROTOCOL_MPD:
-                priv = streams->private;
-                free(priv->representations);
-                mpd_free(priv->mpd);
-                free(priv);
-                break;
+        if (streams->streams[0].protocol == SC_PROTOCOL_HLS) {
+            hls_playlist_free(streams->private);
+        } else if (streams->streams[0].protocol == SC_PROTOCOL_MPD) {
+            struct MPDStreamsPrivate *priv = streams->private;
+            free(priv->representations);
+            mpd_free(priv->mpd);
+            free(priv);
         }
     }
     free(streams->streams);
