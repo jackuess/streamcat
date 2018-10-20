@@ -65,7 +65,10 @@ int main(int argc, char *argv[argc + 1]) {
     }
 
     struct SCStreamList *streams = NULL;
-    enum SCErrorCode scerr = sc_get_streams(&streams, resp.data, resp.data_size);
+    enum SCErrorCode scerr = sc_get_streams(&streams,
+                                            resp.data,
+                                            resp.data_size,
+                                            resp.effective_url);
     if (scerr != SC_SUCCESS) {
         return 3;
     }
