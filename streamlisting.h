@@ -40,14 +40,14 @@ struct SCStreamSegment {
 
 enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
                                 char *manifest,
-                                size_t manifest_len,
+                                size_t manifest_size,
                                 const char *manifest_url);
 void sc_streams_free(struct SCStreamList *streams);
 enum SCErrorCode
 sc_get_stream_segment_data(struct SCStreamSegmentData *segment_data,
                            const struct SCStream *stream,
-                           const char *origin_url,
-                           char *manifest);
+                           char *manifest,
+                           size_t *manifest_size);
 enum SCErrorCode
 sc_get_stream_segment(struct SCStreamSegment *segment,
                       const struct SCStreamSegmentData *segment_data,

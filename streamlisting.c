@@ -70,7 +70,7 @@ static enum SCErrorCode get_mpd_streams(struct SCStreamList **streams,
 
 enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
                                 char *manifest,
-                                size_t manifest_len,
+                                size_t manifest_size,
                                 const char *manifest_url) {
     *streams = malloc(sizeof *streams[0]);
     if (streams == NULL) {
@@ -78,9 +78,9 @@ enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
     }
 
     if (str_starts_with(manifest, "#EXTM3U")) {
-        return get_hls_streams(streams, manifest, manifest_len, manifest_url);
+        return get_hls_streams(streams, manifest, manifest_size, manifest_url);
     } else if (str_starts_with(manifest, "<MPD")) {
-        return get_mpd_streams(streams, manifest, manifest_len, manifest_url);
+        return get_mpd_streams(streams, manifest, manifest_size, manifest_url);
     } else {
         return SC_UNKNOW_FORMAT;
     }
