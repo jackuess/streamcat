@@ -6,6 +6,7 @@
 
 #include "http.h"
 #include "output.h"
+#include "string.h"
 
 static void response_init_data(struct SCHTTPResponse *resp) {
     resp->data = malloc(1);
@@ -90,6 +91,13 @@ char *urljoin(const char *base, const char *relative) {
     size_t relative_len = strlen(relative);
     size_t lastchar;
     size_t i;
+
+    if (str_starts_with(relative, "http://") ||
+          str_starts_with(relative, "https://")) {
+        newurl = malloc(strlen(relative) + 1);
+        newurl = strcpy(newurl, relative);
+        return newurl;
+    }
 
     for (base_len = strlen(base); base_len != 0; base_len--) {
         if (base[base_len - 1] == '/') {

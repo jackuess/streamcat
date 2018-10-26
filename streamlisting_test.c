@@ -4,7 +4,7 @@
 
 #include "streamlisting.h"
 
-void test_hls_streamlist_parse_master_playlist(struct TestResult *tr) {
+void test_get_streams_of_hls_master_playlist(struct TestResult *tr) {
     struct SCStreamList *streams = NULL;
     char *manifest =
         "#EXTM3U\n"
@@ -73,6 +73,43 @@ void test_hls_streamlist_parse_master_playlist(struct TestResult *tr) {
     ASSERT_STR_EQ(tr, streams->streams[4].codecs[0].name, "avc1.4d401e");
     ASSERT_STR_EQ(tr, streams->streams[4].codecs[1].name, "mp4a.40.2");
     ASSERT_EQ(tr, streams->streams[4].codecs[1].codec_media_type, SC_CODEC_AUDIO);
+
+    sc_streams_free(streams);
+}
+
+void test_get_streams_of_hls_media_playlist(struct TestResult *tr) {
+    struct SCStreamList *streams = NULL;
+    char *manifest =
+        "#EXTM3U\n"
+        "#EXT-X-TARGETDURATION:10\n"
+        "#EXT-X-VERSION:3\n"
+
+        "#EXTINF:9.009,\n"
+        "first.ts\n"
+
+        "#EXTINF:9.009,\n"
+        "second.ts\n"
+
+        "#EXTINF:3.003,\n"
+        "third.ts\n"
+
+        "#EXT-X-ENDLIST";
+
+    enum SCErrorCode ret = sc_get_streams(&streams,
+                                          manifest,
+                                          strlen(manifest),
+                                          "http://example.com/master.m3u8");
+
+    ASSERT_EQ(tr, ret, SC_SUCCESS);
+    ASSERT_EQ(tr, streams->len, 1);
+
+    ASSERT_EQ(tr, streams->streams[0].protocol, SC_PROTOCOL_HLS);
+    ASSERT_STR_EQ(tr, streams->streams[0].url, "http://example.com/master.m3u8");
+    ASSERT_STR_EQ(tr, streams->streams[0].id, "1");
+    ASSERT_EQ(tr, streams->streams[0].bitrate, 0);
+    ASSERT_EQ(tr, streams->streams[0].num_codecs, 1);
+    ASSERT_EQ(tr, streams->streams[0].codecs[0].codec_media_type, SC_CODEC_UNKNOWN);
+    ASSERT_STR_EQ(tr, streams->streams[0].codecs[0].name, "");
 
     sc_streams_free(streams);
 }

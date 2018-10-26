@@ -15,8 +15,28 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
     struct HLSVariantStream *hls_streams = NULL;
     HLSPlaylist *playlist = hls_playlist_new();
 
-    hls_parse_playlist(playlist, manifest, manifest_len);
-    (*streams)->len = hls_get_variant_streams(&hls_streams, playlist);
+    enum HLSPlaylistType type = hls_parse_playlist(playlist, manifest,
+                                                   manifest_len);
+
+    if (type == HLS_MASTER_PLAYLIST) {
+        (*streams)->len = hls_get_variant_streams(&hls_streams, playlist);
+    } else if (type == HLS_MEDIA_PLAYLIST) {
+        static struct SCCodec unknown_codec = {
+            .codec_media_type = SC_CODEC_UNKNOWN,
+            .name = ""
+        };
+        static uint64_t zero = 0;
+
+        (*streams)->len = 1;
+        hls_streams = calloc(1, sizeof hls_streams[0]);
+        hls_streams[0].url = manifest_url;
+        hls_streams[0].bandwidth = &zero;
+        hls_streams[0].num_codecs = 1;
+        hls_streams[0].codecs = &unknown_codec;
+    } else if (type == HLS_INVALID_PLAYLIST) {
+        return SC_UNKNOW_FORMAT;
+    }
+
     (*streams)->streams = malloc((*streams)->len * sizeof (*streams)->streams[0]);
     for (size_t i = 0; i < (*streams)->len; i++) {
         struct SCStream *strm = &(*streams)->streams[i];
@@ -30,6 +50,10 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
         sprintf(strm->id, "%zu", i + 1);
     }
     (*streams)->private = playlist;
+
+    if (type == HLS_MEDIA_PLAYLIST) {
+        free(hls_streams);
+    }
 
     return SC_SUCCESS;
 }
