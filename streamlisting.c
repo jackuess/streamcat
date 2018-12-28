@@ -8,7 +8,7 @@
 #include "streamlisting.h"
 #include "string.h"
 
-static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
+static enum SCErrorCode get_hls_streams(struct SCStreamList *streams,
                                         char *manifest,
                                         size_t manifest_len,
                                         const char *manifest_url) {
@@ -19,7 +19,7 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
                                                    manifest_len);
 
     if (type == HLS_MASTER_PLAYLIST) {
-        (*streams)->len = hls_get_variant_streams(&hls_streams, playlist);
+        streams->len = hls_get_variant_streams(&hls_streams, playlist);
     } else if (type == HLS_MEDIA_PLAYLIST) {
         static struct SCCodec unknown_codec = {
             .codec_media_type = SC_CODEC_UNKNOWN,
@@ -27,7 +27,7 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
         };
         static uint64_t zero = 0;
 
-        (*streams)->len = 1;
+        streams->len = 1;
         hls_streams = calloc(1, sizeof hls_streams[0]);
         hls_streams[0].url = manifest_url;
         hls_streams[0].bandwidth = &zero;
@@ -37,9 +37,9 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
         return SC_UNKNOW_FORMAT;
     }
 
-    (*streams)->streams = malloc((*streams)->len * sizeof (*streams)->streams[0]);
-    for (size_t i = 0; i < (*streams)->len; i++) {
-        struct SCStream *strm = &(*streams)->streams[i];
+    streams->streams = malloc(streams->len * sizeof streams->streams[0]);
+    for (size_t i = 0; i < streams->len; i++) {
+        struct SCStream *strm = &streams->streams[i];
 
         strm->protocol = SC_PROTOCOL_HLS;
         strm->url = urljoin(manifest_url, hls_streams[i].url);
@@ -49,7 +49,7 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList **streams,
         strm->id = malloc(i % 10 + 2);
         sprintf(strm->id, "%zu", i + 1);
     }
-    (*streams)->private = playlist;
+    streams->private = playlist;
 
     if (type == HLS_MEDIA_PLAYLIST) {
         free(hls_streams);
@@ -63,7 +63,7 @@ struct MPDStreamsPrivate {
     struct Representation *representations;
 };
 
-static enum SCErrorCode get_mpd_streams(struct SCStreamList **streams,
+static enum SCErrorCode get_mpd_streams(struct SCStreamList *streams,
                                         char *manifest,
                                         size_t manifest_len,
                                         const char *manifest_url) {
@@ -71,10 +71,10 @@ static enum SCErrorCode get_mpd_streams(struct SCStreamList **streams,
     struct Representation *representations = NULL;
 
     struct MPD *mpd = mpd_parse(manifest, manifest_url);
-    (*streams)->len = mpd_get_representations(&representations, mpd);
-    (*streams)->streams = malloc((*streams)->len * sizeof (*streams)->streams[0]);
-    for (size_t i = 0; i < (*streams)->len; i++) {
-        struct SCStream *strm = &(*streams)->streams[i];
+    streams->len = mpd_get_representations(&representations, mpd);
+    streams->streams = malloc(streams->len * sizeof streams->streams[0]);
+    for (size_t i = 0; i < streams->len; i++) {
+        struct SCStream *strm = &streams->streams[i];
 
         strm->protocol = SC_PROTOCOL_MPD;
         strm->url = manifest_url;
@@ -87,7 +87,7 @@ static enum SCErrorCode get_mpd_streams(struct SCStreamList **streams,
     struct MPDStreamsPrivate *priv = malloc(sizeof priv[0]);
     priv->mpd = mpd;
     priv->representations = representations;
-    (*streams)->private = priv;
+    streams->private = priv;
 
     return SC_SUCCESS;
 }
@@ -102,9 +102,9 @@ enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
     }
 
     if (str_starts_with(manifest, "#EXTM3U")) {
-        return get_hls_streams(streams, manifest, manifest_size, manifest_url);
+        return get_hls_streams(*streams, manifest, manifest_size, manifest_url);
     } else if (str_starts_with(manifest, "<MPD")) {
-        return get_mpd_streams(streams, manifest, manifest_size, manifest_url);
+        return get_mpd_streams(*streams, manifest, manifest_size, manifest_url);
     } else {
         return SC_UNKNOW_FORMAT;
     }
