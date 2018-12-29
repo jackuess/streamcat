@@ -5,7 +5,7 @@
 #include "hls.h"
 
 void test_hls_parse_master_playlist(struct TestResult *tr) {
-    HLSPlaylist *playlist = hls_playlist_new();
+    HLSPlaylist *playlist = hls_playlist_new("http://example.com/master.m3u8");
     struct HLSVariantStream *streams = NULL;
     const char *data =
         "#EXTM3U\n"
@@ -69,7 +69,7 @@ void test_hls_parse_master_playlist(struct TestResult *tr) {
 }
 
 void test_hls_parse_whitespace_in_codec(struct TestResult *tr) {
-    HLSPlaylist *playlist = hls_playlist_new();
+    HLSPlaylist *playlist = hls_playlist_new("http://example.com/master.m3u8");
     struct HLSVariantStream *streams = NULL;
     const char *data =
         "#EXTM3U\n"
@@ -90,7 +90,9 @@ void test_hls_parse_whitespace_in_codec(struct TestResult *tr) {
 }
 
 void test_hls_parse_media_playlist(struct TestResult *tr) {
-    HLSPlaylist *playlist = hls_playlist_new();
+    HLSPlaylist *playlist = hls_playlist_new(
+        "http://media.example.com/master.m3u8"
+    );
     struct HLSMediaSegment *segment = NULL;
     const char *data =
         "#EXTM3U\n"
@@ -101,7 +103,7 @@ void test_hls_parse_media_playlist(struct TestResult *tr) {
         "#EXTINF:9.0090,\n"
         "http://media.example.com/second.ts\n"
         "#EXTINF:303,Foo\n"
-        "http://media.example.com/third.ts\n"
+        "third.ts\n"
         "#EXT-X-ENDLIST\n";
     enum HLSPlaylistType playlist_type = hls_parse_playlist(playlist,
                                                             data,

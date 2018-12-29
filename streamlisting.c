@@ -13,7 +13,7 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList *streams,
                                         size_t manifest_len,
                                         const char *manifest_url) {
     struct HLSVariantStream *hls_streams = NULL;
-    HLSPlaylist *playlist = hls_playlist_new();
+    HLSPlaylist *playlist = hls_playlist_new(manifest_url);
 
     enum HLSPlaylistType type = hls_parse_playlist(playlist, manifest,
                                                    manifest_len);

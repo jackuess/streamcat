@@ -8,6 +8,7 @@
 
 #include "vendor/arr/arr.h"
 
+#include "http.h"
 #include "hls.h"
 
 union HLSTagAttributeData {
@@ -75,13 +76,15 @@ struct HLSLine {
 
 struct HLSPlaylist {
     char *data;
+    const char *origin_url;
     struct HLSLine *lines;
     struct HLSMediaSegment *media_segments;
     struct HLSVariantStream *variant_streams;
 };
 
-HLSPlaylist *hls_playlist_new() {
+HLSPlaylist *hls_playlist_new(const char *origin_url) {
     struct HLSPlaylist *playlist = calloc(1, sizeof *playlist);
+    playlist->origin_url = origin_url;
     return playlist;
 }
 
@@ -237,7 +240,7 @@ static struct HLSLine *hls_get_lines(char *data) {
     return lines;
 }
 
-static struct HLSMediaSegment *parse_media_segments(const struct HLSLine *lines) {
+static struct HLSMediaSegment *parse_media_segments(const struct HLSLine *lines, const char *origin_url) {
     struct HLSMediaSegment *arr_segments = arrnew(0, sizeof arr_segments[0]);
     uint64_t *current_duration = NULL;
     size_t time = 0;
@@ -250,7 +253,7 @@ static struct HLSMediaSegment *parse_media_segments(const struct HLSLine *lines)
             }
         } else {
             struct HLSMediaSegment *segment = ARRAPPEND(&arr_segments);
-            segment->url = lines[i].data;
+            segment->url = urljoin(origin_url, lines[i].data);
             if (current_duration == NULL) {
                 // TODO(Jacques): Handle this as an error case - segments must have a duration
                 segment->duration = 0;
@@ -308,7 +311,10 @@ enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist,
     for (size_t i = 0; i < arrlen(playlist->lines); i++) {
         if (playlist->lines[i].is_tag) {
             if (playlist->lines[i].tag->type == HLS_EXT_X_TARGETDURATION) {
-                playlist->media_segments = parse_media_segments(playlist->lines);
+                playlist->media_segments = parse_media_segments(
+                    playlist->lines,
+                    playlist->origin_url
+                );
                 return HLS_MEDIA_PLAYLIST;
             }
         }
@@ -316,6 +322,10 @@ enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist,
 
     playlist->variant_streams = parse_variant_streams(playlist->lines);
     return HLS_MASTER_PLAYLIST;
+}
+
+const char* hls_playlist_get_origin_url(HLSPlaylist *playlist) {
+    return playlist->origin_url;
 }
 
 static int get_media_segment_time_collision(const void *key, const void *value) {
@@ -375,6 +385,9 @@ void hls_playlist_free(HLSPlaylist *playlist) {
     }
     arrfree(playlist->lines);
     if (playlist->media_segments != NULL) {
+        for (size_t i = 0; i < arrlen(playlist->media_segments); i++) {
+            free(playlist->media_segments[i].url);
+        }
         arrfree(playlist->media_segments);
     }
     if (playlist->variant_streams != NULL) {

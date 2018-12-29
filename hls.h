@@ -24,12 +24,13 @@ struct HLSVariantStream {
 struct HLSMediaSegment {
     uint64_t duration;
     size_t start_time;
-    const char *url;
+    char *url;
 };
 
-HLSPlaylist *hls_playlist_new();
+HLSPlaylist *hls_playlist_new(const char *origin_url);
 enum HLSPlaylistType hls_parse_playlist(HLSPlaylist *playlist, const char *buffer,
                                         size_t buffer_n);
+const char* hls_playlist_get_origin_url(HLSPlaylist *playlist);
 uint64_t hls_get_media_segment(struct HLSMediaSegment **segment,
                                const HLSPlaylist *playlist,
                                uint64_t start_time);
