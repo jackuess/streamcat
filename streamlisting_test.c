@@ -114,6 +114,65 @@ void test_get_streams_of_hls_media_playlist(struct TestResult *tr) {
     sc_streams_free(streams);
 }
 
+void test_get_segments_of_hls_stream(struct TestResult *tr) {
+    struct SCStreamSegmentData *segment_data = NULL;
+    struct SCStream stream = {
+        SC_PROTOCOL_HLS,
+        "http://example.com/master.m3u8",
+        "1",
+        0,
+        0,
+        NULL
+    };
+    char *manifest =
+        "#EXTM3U\n"
+        "#EXT-X-TARGETDURATION:10\n"
+        "#EXT-X-VERSION:3\n"
+
+        "#EXTINF:9.009,\n"
+        "first.ts\n"
+
+        "#EXTINF:9.009,\n"
+        "http://example.com/second.ts\n"
+
+        "#EXTINF:3.003,\n"
+        "third.ts\n"
+
+        "#EXT-X-ENDLIST";
+
+    enum SCErrorCode ret = sc_get_stream_segment_data(&segment_data,
+                                                      &stream,
+                                                      manifest,
+                                                      strlen(manifest));
+
+    ASSERT_EQ(tr, ret, SC_SUCCESS);
+
+    ASSERT_EQ(tr, segment_data->num_segments, 3);
+
+    struct SCStreamSegment segment;
+    uint64_t time = 0;
+
+    ret = sc_get_stream_segment(&segment, segment_data, &time);
+    ASSERT_EQ(tr, ret, SC_SUCCESS);
+    ASSERT_STR_EQ(tr, segment.url, "http://example.com/first.ts");
+    ASSERT_EQ(tr, segment.duration, 9009);
+    ASSERT_EQ(tr, time, 9009);
+
+    ret = sc_get_stream_segment(&segment, segment_data, &time);
+    ASSERT_EQ(tr, ret, SC_SUCCESS);
+    ASSERT_STR_EQ(tr, segment.url, "http://example.com/second.ts");
+    ASSERT_EQ(tr, segment.duration, 9009);
+    ASSERT_EQ(tr, time, 18018);
+
+    ret = sc_get_stream_segment(&segment, segment_data, &time);
+    ASSERT_EQ(tr, ret, SC_SUCCESS);
+    ASSERT_STR_EQ(tr, segment.url, "http://example.com/third.ts");
+    ASSERT_EQ(tr, segment.duration, 3003);
+    ASSERT_EQ(tr, time, 0);
+
+    sc_stream_segment_data_free(segment_data);
+}
+
 void test_mpd_streamlist_parse_manifest(struct TestResult *tr) {
     struct SCStreamList *streams = NULL;
     // clang-format off

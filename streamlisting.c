@@ -130,3 +130,52 @@ void sc_streams_free(struct SCStreamList *streams) {
     free(streams->streams);
     free(streams);
 }
+
+enum SCErrorCode get_hls_segment_data(struct SCStreamSegmentData *segment_data,
+                                      const struct SCStream *stream,
+                                      char *manifest,
+                                      size_t manifest_size) {
+    HLSPlaylist *playlist = hls_playlist_new(stream->url);
+    hls_parse_playlist(playlist, manifest, manifest_size);
+    segment_data->num_segments = hls_media_segments_len(playlist);
+    segment_data->private = playlist;
+
+    (void)stream;
+    return SC_SUCCESS;
+}
+
+
+enum SCErrorCode
+sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
+                           const struct SCStream *stream,
+                           char *manifest,
+                           size_t manifest_size) {
+    *segment_data = malloc(sizeof *segment_data[0]);
+    if (segment_data == NULL) {
+        return SC_OUT_OF_MEMORY;
+    }
+
+    if (stream->protocol == SC_PROTOCOL_HLS) {
+        return get_hls_segment_data(*segment_data, stream, manifest,
+                                    manifest_size);
+    } else {
+        return SC_UNKNOW_FORMAT;
+    }
+}
+
+void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data) {
+    hls_playlist_free(segment_data->private);
+    free(segment_data);
+}
+
+enum SCErrorCode sc_get_stream_segment(struct SCStreamSegment *segment,
+                                       const struct SCStreamSegmentData *segment_data,
+                                       uint64_t *time) {
+    struct HLSMediaSegment *hls_segment = NULL;
+    *time = hls_get_media_segment(&hls_segment,
+                                  (HLSPlaylist*)segment_data->private,
+                                  *time);
+    segment->duration = hls_segment->duration;
+    segment->url = hls_segment->url;
+    return SC_SUCCESS;
+}

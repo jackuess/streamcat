@@ -44,13 +44,15 @@ enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
                                 const char *manifest_url);
 void sc_streams_free(struct SCStreamList *streams);
 enum SCErrorCode
-sc_get_stream_segment_data(struct SCStreamSegmentData *segment_data,
+sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
                            const struct SCStream *stream,
                            char *manifest,
-                           size_t *manifest_size);
+                           size_t manifest_size);
 enum SCErrorCode
 sc_get_stream_segment(struct SCStreamSegment *segment,
                       const struct SCStreamSegmentData *segment_data,
                       uint64_t *time);
+
+void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data);
 
 #endif // streamlisting_h_INCLUDED
