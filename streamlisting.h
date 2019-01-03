@@ -16,6 +16,8 @@ enum SCStreamProtocol {
     SC_PROTOCOL_MPD
 };
 
+enum SCURLType { SC_INITIALIZATION_URL, SC_MEDIA_URL };
+
 struct SCStream {
     enum SCStreamProtocol protocol;
     const char *url;
@@ -51,6 +53,7 @@ sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
 enum SCErrorCode
 sc_get_stream_segment(struct SCStreamSegment *segment,
                       const struct SCStreamSegmentData *segment_data,
+                      enum SCURLType url_type,
                       uint64_t *time);
 
 void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data);

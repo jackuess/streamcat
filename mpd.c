@@ -375,7 +375,7 @@ size_t mpd_get_url_count(const struct Representation *repr) {
 
 long mpd_get_url(char **url,
                  const struct Representation *repr,
-                 enum URL_TYPE url_type,
+                 enum SCURLType url_type,
                  long time) {
     long start_number = repr->segment_template.start_number;
     size_t n = start_number;
@@ -383,10 +383,10 @@ long mpd_get_url(char **url,
     URLTemplate template =
         NULL;  // TODO(Jacques): Store template in Representation
     switch (url_type) {
-    case INITIALIZATION_URL:
+    case SC_INITIALIZATION_URL:
         template = parse_url_template(repr->segment_template.initialization);
         break;
-    case MEDIA_URL:
+    case SC_MEDIA_URL:
         template = parse_url_template(repr->segment_template.media);
         break;
     }

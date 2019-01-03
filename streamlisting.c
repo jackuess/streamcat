@@ -170,7 +170,14 @@ void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data) {
 
 enum SCErrorCode sc_get_stream_segment(struct SCStreamSegment *segment,
                                        const struct SCStreamSegmentData *segment_data,
+                                       enum SCURLType url_type,
                                        uint64_t *time) {
+    if (url_type == SC_INITIALIZATION_URL) {
+        segment->url = NULL;
+        segment->duration = 0;
+        return SC_SUCCESS;
+    }
+
     struct HLSMediaSegment *hls_segment = NULL;
     *time = hls_get_media_segment(&hls_segment,
                                   (HLSPlaylist*)segment_data->private,

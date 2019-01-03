@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "codec.h"
+#include "streamlisting.h"
 
 struct MPD;
 
@@ -27,8 +28,6 @@ struct Representation {
     // SegmentList
 };
 
-enum URL_TYPE { INITIALIZATION_URL, MEDIA_URL };
-
 struct MPD *mpd_parse(const char *buffer, const char *origin_url);
 void mpd_free(struct MPD *mpd);
 size_t mpd_get_representations(struct Representation **repr,
@@ -36,7 +35,7 @@ size_t mpd_get_representations(struct Representation **repr,
 size_t mpd_get_url_count(const struct Representation *repr);
 long mpd_get_url(char **url,
                  const struct Representation *repr,
-                 enum URL_TYPE url_type,
+                 enum SCURLType url_type,
                  long time);
 
 #endif  // mpd_h_INCLUDED

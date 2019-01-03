@@ -122,12 +122,12 @@ void fprintrepr_urls(FILE *f,
     char *output_url;
     long start = 0;
 
-    mpd_get_url(&output_url, repr, INITIALIZATION_URL, start);
+    mpd_get_url(&output_url, repr, SC_INITIALIZATION_URL, start);
     fprintf(f, "%s\n", output_url);
     free(output_url);
 
     while (
-        (start = mpd_get_url(&output_url, repr, MEDIA_URL, start))) {
+        (start = mpd_get_url(&output_url, repr, SC_MEDIA_URL, start))) {
         fprintf(f, "%s\n", output_url);
         free(output_url);
     }
@@ -163,7 +163,7 @@ int concat_representations(FILE *f,
         goto finally;
     }
 
-    mpd_get_url(&url, repr, INITIALIZATION_URL, start);
+    mpd_get_url(&url, repr, SC_INITIALIZATION_URL, start);
     if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
         goto finally;
     }
@@ -172,7 +172,7 @@ int concat_representations(FILE *f,
     }
     free(url);
     size_t n_parts_total = mpd_get_url_count(repr);
-    while ((start = mpd_get_url(&url, repr, MEDIA_URL, start))) {
+    while ((start = mpd_get_url(&url, repr, SC_MEDIA_URL, start))) {
         if (CURLE_OK !=
             (res = curl_easy_setopt(curl_handle, CURLOPT_URL, url))) {
             goto finally;

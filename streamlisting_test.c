@@ -152,19 +152,23 @@ void test_get_segments_of_hls_stream(struct TestResult *tr) {
     struct SCStreamSegment segment;
     uint64_t time = 0;
 
-    ret = sc_get_stream_segment(&segment, segment_data, &time);
+    ret = sc_get_stream_segment(&segment, segment_data, SC_INITIALIZATION_URL, &time);
+    ASSERT_EQ(tr, ret, SC_SUCCESS);
+    ASSERT_EQ(tr, segment.url, NULL);
+
+    ret = sc_get_stream_segment(&segment, segment_data, SC_MEDIA_URL, &time);
     ASSERT_EQ(tr, ret, SC_SUCCESS);
     ASSERT_STR_EQ(tr, segment.url, "http://example.com/first.ts");
     ASSERT_EQ(tr, segment.duration, 9009);
     ASSERT_EQ(tr, time, 9009);
 
-    ret = sc_get_stream_segment(&segment, segment_data, &time);
+    ret = sc_get_stream_segment(&segment, segment_data, SC_MEDIA_URL, &time);
     ASSERT_EQ(tr, ret, SC_SUCCESS);
     ASSERT_STR_EQ(tr, segment.url, "http://example.com/second.ts");
     ASSERT_EQ(tr, segment.duration, 9009);
     ASSERT_EQ(tr, time, 18018);
 
-    ret = sc_get_stream_segment(&segment, segment_data, &time);
+    ret = sc_get_stream_segment(&segment, segment_data, SC_MEDIA_URL, &time);
     ASSERT_EQ(tr, ret, SC_SUCCESS);
     ASSERT_STR_EQ(tr, segment.url, "http://example.com/third.ts");
     ASSERT_EQ(tr, segment.duration, 3003);
