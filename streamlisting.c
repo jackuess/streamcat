@@ -58,9 +58,10 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList *streams,
     return SC_SUCCESS;
 }
 
-struct MPDStreamsPrivate {
+struct MPDPrivate {
     struct MPD *mpd;
     struct Representation *representations;
+    size_t curr_repr_idx;
 };
 
 static enum SCErrorCode get_mpd_streams(struct SCStreamList *streams,
@@ -84,7 +85,7 @@ static enum SCErrorCode get_mpd_streams(struct SCStreamList *streams,
         strm->id = malloc(i % 10 + 2);
         sprintf(strm->id, "%zu", i + 1);
     }
-    struct MPDStreamsPrivate *priv = malloc(sizeof priv[0]);
+    struct MPDPrivate *priv = malloc(sizeof priv[0]);
     priv->mpd = mpd;
     priv->representations = representations;
     streams->private = priv;
@@ -121,7 +122,7 @@ void sc_streams_free(struct SCStreamList *streams) {
         if (streams->streams[0].protocol == SC_PROTOCOL_HLS) {
             hls_playlist_free(streams->private);
         } else if (streams->streams[0].protocol == SC_PROTOCOL_MPD) {
-            struct MPDStreamsPrivate *priv = streams->private;
+            struct MPDPrivate *priv = streams->private;
             free(priv->representations);
             mpd_free(priv->mpd);
             free(priv);
@@ -140,7 +141,31 @@ enum SCErrorCode get_hls_segment_data(struct SCStreamSegmentData *segment_data,
     segment_data->num_segments = hls_media_segments_len(playlist);
     segment_data->private = playlist;
 
-    (void)stream;
+    return SC_SUCCESS;
+}
+
+enum SCErrorCode get_mpd_segment_data(struct SCStreamSegmentData *segment_data,
+                                      const struct SCStream *stream,
+                                      char *manifest) {
+    struct MPD *mpd = mpd_parse(manifest, stream->url);
+    struct Representation *reprs = NULL;
+    size_t num_reprs = mpd_get_representations(&reprs, mpd);
+    size_t index;
+
+    if (sscanf(stream->id, "%zu", &index) != 1 ||
+          index > num_reprs) {
+        return SC_UNKNOW_FORMAT;  // TODO(Jacques): Return a better error code
+    }
+
+    struct Representation *repr = &reprs[index - 1];
+    segment_data->num_segments = mpd_get_url_count(repr);
+
+    struct MPDPrivate *priv = malloc(sizeof priv[0]);
+    priv->mpd = mpd;
+    priv->representations = reprs;
+    priv->curr_repr_idx = index - 1;
+    segment_data->private = priv;
+
     return SC_SUCCESS;
 }
 
@@ -155,23 +180,44 @@ sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
         return SC_OUT_OF_MEMORY;
     }
 
+    (*segment_data)->private = NULL;
+    (*segment_data)->protocol = stream->protocol;
     if (stream->protocol == SC_PROTOCOL_HLS) {
         return get_hls_segment_data(*segment_data, stream, manifest,
                                     manifest_size);
+    } else if (stream->protocol == SC_PROTOCOL_MPD) {
+        return get_mpd_segment_data(*segment_data, stream, manifest);
     } else {
         return SC_UNKNOW_FORMAT;
     }
 }
 
+void sc_stream_segment_free(struct SCStreamSegment *segment,
+                            enum SCStreamProtocol protocol) {
+    if (protocol == SC_PROTOCOL_MPD && segment->url != NULL) {
+        free((char*)segment->url);
+    }
+}
+
 void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data) {
-    hls_playlist_free(segment_data->private);
+    if (segment_data->private != NULL) {
+        if (segment_data->protocol == SC_PROTOCOL_HLS) {
+            hls_playlist_free(segment_data->private);
+        } else if (segment_data->protocol == SC_PROTOCOL_MPD) {
+            struct MPDPrivate *priv = segment_data->private;
+            free(priv->representations);
+            mpd_free(priv->mpd);
+            free(priv);
+        }
+    }
     free(segment_data);
 }
 
-enum SCErrorCode sc_get_stream_segment(struct SCStreamSegment *segment,
-                                       const struct SCStreamSegmentData *segment_data,
-                                       enum SCURLType url_type,
-                                       uint64_t *time) {
+enum
+SCErrorCode get_hls_stream_segment(struct SCStreamSegment *segment,
+                                   const struct SCStreamSegmentData *segment_data,
+                                   enum SCURLType url_type,
+                                   uint64_t *time) {
     if (url_type == SC_INITIALIZATION_URL) {
         segment->url = NULL;
         segment->duration = 0;
@@ -182,7 +228,48 @@ enum SCErrorCode sc_get_stream_segment(struct SCStreamSegment *segment,
     *time = hls_get_media_segment(&hls_segment,
                                   (HLSPlaylist*)segment_data->private,
                                   *time);
-    segment->duration = hls_segment->duration;
-    segment->url = hls_segment->url;
+    if (hls_segment == NULL) {
+        segment->duration = 0;
+        segment->url = NULL;
+    } else {
+        segment->duration = hls_segment->duration;
+        segment->url = hls_segment->url;
+    }
     return SC_SUCCESS;
+}
+
+enum
+SCErrorCode get_mpd_stream_segment(struct SCStreamSegment *segment,
+                                   const struct SCStreamSegmentData *segment_data,
+                                   enum SCURLType url_type,
+                                   uint64_t *time) {
+    struct MPDPrivate *priv = segment_data->private;
+    struct Representation *repr = &priv->representations[priv->curr_repr_idx];
+    char *url = NULL;
+    uint64_t next_time = (uint64_t)mpd_get_url(&url, repr, url_type, *time);
+    if (next_time > 0) {
+        segment->duration = next_time - *time;
+    } else {
+        segment->duration = 0;
+    }
+    segment->url = url;
+    if (url_type == SC_MEDIA_URL) {
+        *time = next_time;
+    }
+
+    return SC_SUCCESS;
+}
+
+enum SCErrorCode
+sc_get_stream_segment(struct SCStreamSegment *segment,
+                      const struct SCStreamSegmentData *segment_data,
+                      enum SCURLType url_type,
+                      uint64_t *time) {
+    if (segment_data->protocol == SC_PROTOCOL_HLS) {
+        return get_hls_stream_segment(segment, segment_data, url_type, time);
+    } else if (segment_data->protocol == SC_PROTOCOL_MPD) {
+        return get_mpd_stream_segment(segment, segment_data, url_type, time);
+    } else {
+        return SC_UNKNOW_FORMAT;
+    }
 }

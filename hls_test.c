@@ -129,6 +129,10 @@ void test_hls_parse_media_playlist(struct TestResult *tr) {
     next_start = hls_get_media_segment(&segment, playlist, next_start);
     ASSERT_STR_EQ(tr, segment->url, "http://media.example.com/third.ts");
     ASSERT_EQ(tr, segment->duration, 303000);
+    ASSERT_EQ(tr, next_start, 321018);
+
+    next_start = hls_get_media_segment(&segment, playlist, next_start);
+    ASSERT_EQ(tr, segment, NULL);
     ASSERT_EQ(tr, next_start, 0);
 
     hls_playlist_free(playlist);

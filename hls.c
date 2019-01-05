@@ -355,8 +355,6 @@ uint64_t hls_get_media_segment(struct HLSMediaSegment **segment,
                        get_media_segment_time_collision);
     if (*segment == NULL) {
         return 0;
-    } else if ((size_t)(*segment - playlist->media_segments + 1) == num_media_segments) {
-        return 0;
     } else {
         return (*segment)->start_time + (*segment)->duration;
     }

@@ -33,6 +33,7 @@ struct SCStreamList {
 };
 struct SCStreamSegmentData {
     size_t num_segments;
+    enum SCStreamProtocol protocol;
     void *private;
 };
 struct SCStreamSegment {
@@ -55,6 +56,9 @@ sc_get_stream_segment(struct SCStreamSegment *segment,
                       const struct SCStreamSegmentData *segment_data,
                       enum SCURLType url_type,
                       uint64_t *time);
+
+void sc_stream_segment_free(struct SCStreamSegment *segment,
+                            enum SCStreamProtocol protocol);
 
 void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data);
 

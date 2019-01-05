@@ -10,6 +10,7 @@ void test_get_streams_of_hls_master_playlist(struct TestResult *tr);
 void test_get_streams_of_hls_media_playlist(struct TestResult *tr);
 void test_get_segments_of_hls_stream(struct TestResult *tr);
 void test_mpd_streamlist_parse_manifest(struct TestResult *tr);
+void test_get_segments_of_mpd_stream(struct TestResult *tr);
 
 int main() {
     void (*test_functions[])(struct TestResult *) = {
@@ -22,7 +23,8 @@ int main() {
         &test_get_streams_of_hls_master_playlist,
         &test_get_streams_of_hls_media_playlist,
         &test_get_segments_of_hls_stream,
-        &test_mpd_streamlist_parse_manifest};
+        &test_mpd_streamlist_parse_manifest,
+        &test_get_segments_of_mpd_stream};
 
     struct TestResult *tr =
         t_run(sizeof test_functions / sizeof test_functions[0], test_functions);
