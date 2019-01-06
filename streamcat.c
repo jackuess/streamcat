@@ -1,12 +1,19 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <curl/curl.h>
 
 #include "http.h"
+#include "muxing.h"
 #include "streamlisting.h"
 #include "string.h"
+
+static const char tmp_template[] = "/tmp/streamcatXXXXXX";
+#define TMP_LEN sizeof(tmp_template) / sizeof(tmp_template[0])
 
 const char *protocol_to_string(enum SCStreamProtocol protocol) {
     static const char *protocol_hls = "HLS";
@@ -160,42 +167,143 @@ enum SCErrorCode stream_from_string(struct SCStream *stream, char *arg) {
     return SC_SUCCESS;
 }
 
-enum SCErrorCode cat_streams(size_t num_streams, char **stream_str) {
+FILE *create_temp_file(char **file_name) {
+    *file_name = malloc(TMP_LEN);
+    strncpy(*file_name, tmp_template, TMP_LEN);
+    int fd = mkstemp(*file_name);
+    if (fd < 0) {
+        fprintf(stderr, "Could not create tempfile\n");
+        return NULL;
+    }
+    close(fd);
+    FILE *f = fopen(*file_name, "w+");
+    return f;
+}
+
+static size_t
+curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
+    return fwrite(buffer, size, nmemb, (FILE *)userp);
+}
+
+enum SCErrorCode concat_stream(FILE *f, char *stream_str) {
     enum SCErrorCode scerr = SC_SUCCESS;
-    for (size_t i = 0; i < num_streams; i++) {
-        struct SCStream stream;
-        char **urls = NULL;
-        size_t num_urls = 0;
-        if (stream_from_string(&stream, stream_str[i]) == SC_SUCCESS) {
-            urls = get_stream_urls(&stream, &num_urls, &scerr);
-        } else {
-            return SC_UNKNOW_FORMAT;
+    struct SCStream stream;
+    char **urls = NULL;
+    size_t num_urls = 0;
+    CURL *curl_handle = NULL;
+
+    if (stream_from_string(&stream, stream_str) == SC_SUCCESS) {
+        urls = get_stream_urls(&stream, &num_urls, &scerr);
+    } else {
+        return SC_UNKNOW_FORMAT;
+    }
+    if (scerr != SC_SUCCESS) {
+        return scerr;
+    }
+    if (urls == NULL) {
+        return SC_UNKNOW_FORMAT;
+    }
+
+    if (f == NULL) {
+        for (size_t i = 0; i < num_urls; i++) {
+            printf("%s\n", urls[i]);
+            free(urls[i]);
         }
-        if (scerr == SC_SUCCESS && urls != NULL) {
-            for (size_t j = 0; j < num_urls; j++) {
-                printf("%s\n", urls[j]);
-                free(urls[j]);
+    } else {
+        curl_handle = curl_easy_init();
+        CURLcode res;
+        if (!curl_handle) {
+            scerr = SC_UNKNOW_FORMAT;
+            goto finally;
+        }
+        if (CURLE_OK != (res = curl_easy_setopt(curl_handle,
+                                                CURLOPT_WRITEFUNCTION,
+                                                curl_write_data))) {
+            scerr = SC_UNKNOW_FORMAT;
+            goto finally;
+        }
+        if (CURLE_OK !=
+            (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)f))) {
+            scerr = SC_UNKNOW_FORMAT;
+            goto finally;
+        }
+
+        for (size_t i = 0; i < num_urls; i++) {
+            if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, urls[i]))) {
+                goto finally;
             }
-            free(urls);
-        } else {
-            break;
+            if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
+                goto finally;
+            }
+            free(urls[i]);
         }
     }
+
+finally:
+    if (curl_handle) {
+        curl_easy_cleanup(curl_handle);
+    }
+    free(urls);
     return scerr;
 }
 
 int main(int argc, char *argv[argc + 1]) {
-    if (argc < 2) {
+    const char *output_file_name = NULL;
+    int o;
+
+    while ((o = getopt(argc, argv, "o:")) != -1) {
+        switch (o) {
+        case 'o':
+            output_file_name = optarg;
+            break;
+        }
+    };
+    if (optind >= argc) {
+        printf("No stream specified\n");
         return 1;
     }
+    char **stream_ids = &argv[optind];
 
     enum SCErrorCode ret = 0;
     curl_global_init(CURL_GLOBAL_ALL);
-    if (str_starts_with(argv[1], "http")) {
-        ret = cat_streamlisting(argv[1]);
+    if (str_starts_with(stream_ids[0], "http")) {
+        ret = cat_streamlisting(stream_ids[0]);
     } else {
-        ret = cat_streams(argc - 1, &argv[1]);
+        int num_streams = argc - optind;
+        if (output_file_name == NULL) {
+            for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
+                ret = concat_stream(NULL, stream_ids[i]);
+            }
+        } else {
+            char **file_names = malloc(sizeof (file_names[0]) * num_streams);
+            int num_file_names = 0;
+            for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
+                FILE *f = create_temp_file(&file_names[i]);
+                if (f == NULL) {
+                    goto cleanup_files;
+                }
+                num_file_names++;
+
+                ret = concat_stream(f, stream_ids[i]);
+                fclose(f);
+                if (ret != SC_SUCCESS) {
+                    ret = SC_UNKNOW_FORMAT;
+                    goto cleanup_files;
+                }
+            }
+
+            // TODO(Jacques): Avoid muxing if only one stream (HLS)
+            mux(output_file_name, num_streams, file_names);
+
+cleanup_files:
+            for (int i = 0; i < num_file_names; i++) {
+                unlink(file_names[i]);
+                free(file_names[i]);
+            }
+            free(file_names);
+        }
     }
+
     curl_global_cleanup();
 
     return ret;
