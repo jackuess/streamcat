@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-bin/streamcat $@ | \
-  fzf --tabstop 4 \
-      --delimiter '\t' \
-      --with-nth 1,4,5 \
-      --preview 'echo {} | \
-                   awk '"'"'{
-                     printf "Protocol: %s\nURL: %s\nCodecs: %s\nBitrate: %s kb/s",
-                            $1, $2, $4, $5 / 1000
-                   }'"'"
+read -p'Output file: ' out_file
+SCBIN=bin/streamcat
+streams=($($SCBIN $@ | \
+             fzf --multi \
+                 --tabstop 4 \
+                 --delimiter '\t' \
+                 --with-nth 1,4,5 \
+                 --preview 'echo {} | \
+                              awk -F '"'"'\t|\\|'"'"' '"'"'{
+                                printf "Protocol: %s\nURL: %s\nCodecs: %s\nBitrate: %s kb/s",
+                                       $1, $2, $4, $5 / 1000
+                              }'"'" |
+             awk '{printf " %s\n", $1}'))
+"$SCBIN" -o"$out_file" ${streams[*]}
