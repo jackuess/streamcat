@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,11 @@
 #include "muxing.h"
 #include "streamlisting.h"
 #include "string.h"
+
+#define ANSI_BG_GREEN "\033[42m"
+#define ANSI_BG_BLUE "\033[44m"
+#define ANSI_FG_BLACK "\033[30m"
+#define ANSI_RESET "\033[0m\n"
 
 static const char tmp_template[] = "/tmp/streamcatXXXXXX";
 #define TMP_LEN sizeof(tmp_template) / sizeof(tmp_template[0])
@@ -163,6 +169,9 @@ enum SCErrorCode stream_from_string(struct SCStream *stream, char *arg) {
 
     stream->url = url;
     stream->id = id;
+    stream->bitrate = 0;
+    stream->codecs = NULL;
+    stream->num_codecs = 0;
 
     return SC_SUCCESS;
 }
@@ -180,23 +189,52 @@ FILE *create_temp_file(char **file_name) {
     return f;
 }
 
+void formatbitrate(char *str, uint64_t bitrate) {
+    const char *symbol;
+    const char tbps[] = "Tbit/s";
+    const char gbps[] = "Gbit/s";
+    const char mbps[] = "Mbit/s";
+    const char kbps[] = "kbit/s";
+    const char bps[] = "bit/s";
+    double denominator;
+
+    if (bitrate >= 1000000000000) {
+        symbol = tbps;
+        denominator = 1000000000000;
+    } else if (bitrate >= 1000000000) {
+        symbol = gbps;
+        denominator = 1000000000;
+    } else if (bitrate >= 1000000) {
+        symbol = mbps;
+        denominator = 1000000;
+    } else if (bitrate >= 1000) {
+        symbol = kbps;
+        denominator = 1000;
+    } else {
+        symbol = bps;
+        denominator = 1;
+    }
+    snprintf(str, 14, "%.2f %s", (double)bitrate / denominator, symbol);
+}
+
 static size_t
 curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
     return fwrite(buffer, size, nmemb, (FILE *)userp);
 }
 
-enum SCErrorCode concat_stream(FILE *f, char *stream_str) {
+enum SCErrorCode concat_stream(FILE *f,
+                               struct SCStream *stream,
+                               void (*on_part_downloaded)(size_t n_parts_total,
+                                                          size_t n_parts,
+                                                          void *userp),
+                               void *userp) {
     enum SCErrorCode scerr = SC_SUCCESS;
-    struct SCStream stream;
     char **urls = NULL;
     size_t num_urls = 0;
     CURL *curl_handle = NULL;
 
-    if (stream_from_string(&stream, stream_str) == SC_SUCCESS) {
-        urls = get_stream_urls(&stream, &num_urls, &scerr);
-    } else {
-        return SC_UNKNOW_FORMAT;
-    }
+    urls = get_stream_urls(stream, &num_urls, &scerr);
+
     if (scerr != SC_SUCCESS) {
         return scerr;
     }
@@ -235,6 +273,9 @@ enum SCErrorCode concat_stream(FILE *f, char *stream_str) {
             if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
                 goto finally;
             }
+            if (on_part_downloaded) {
+                (*on_part_downloaded)(num_urls, i + 1, userp);
+            }
             free(urls[i]);
         }
     }
@@ -245,6 +286,32 @@ finally:
     }
     free(urls);
     return scerr;
+}
+
+struct ProgressMeta {
+    const char *ansi_color_fg;
+    const char *ansi_color_bg;
+    char *progress_bar;
+};
+
+void print_progress(size_t n_parts_total, size_t n_parts, void *userp) {
+    struct ProgressMeta *meta = userp;
+    size_t bar_size = strlen(meta->progress_bar);
+    size_t curr_pos = n_parts * bar_size / n_parts_total;
+    size_t prev_pos = (n_parts - 1) * bar_size / n_parts_total;
+
+    if (curr_pos > prev_pos) {
+        for (size_t i = prev_pos; i < curr_pos; i++) {
+            fprintf(stderr,
+                    "%s%s%c",
+                    meta->ansi_color_fg,
+                    meta->ansi_color_bg,
+                    meta->progress_bar[i]);
+        }
+    }
+    if (n_parts == n_parts_total) {
+        fprintf(stderr, ANSI_RESET);
+    }
 }
 
 int main(int argc, char *argv[argc + 1]) {
@@ -272,19 +339,50 @@ int main(int argc, char *argv[argc + 1]) {
         int num_streams = argc - optind;
         if (output_file_name == NULL) {
             for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
-                ret = concat_stream(NULL, stream_ids[i]);
+                struct SCStream stream;
+                if (stream_from_string(&stream, stream_ids[i]) != SC_SUCCESS) {
+                    return SC_UNKNOW_FORMAT;
+                }
+                ret = concat_stream(NULL, &stream, NULL, NULL);
             }
         } else {
             char **file_names = malloc(sizeof (file_names[0]) * num_streams);
             int num_file_names = 0;
+
+            struct winsize ws;
+            ioctl(STDERR_FILENO, TIOCGWINSZ, &ws);
+            struct ProgressMeta meta;
+            meta.ansi_color_fg = ANSI_FG_BLACK;
+            meta.ansi_color_bg = ANSI_BG_GREEN;
+            meta.progress_bar = malloc(ws.ws_col + 1);
+            meta.progress_bar[ws.ws_col] = '\0';
+            char bandwidthstr[14];
+
             for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
+                struct SCStream stream;
+                if (stream_from_string(&stream, stream_ids[i]) != SC_SUCCESS) {
+                    ret = SC_UNKNOW_FORMAT;
+                    goto cleanup_files;
+                }
+
                 FILE *f = create_temp_file(&file_names[i]);
                 if (f == NULL) {
                     goto cleanup_files;
                 }
                 num_file_names++;
 
-                ret = concat_stream(f, stream_ids[i]);
+                formatbitrate(bandwidthstr, stream.bitrate);
+                snprintf(meta.progress_bar,
+                         ws.ws_col + 1,
+                         "%s %s downloaded to %s",
+                         "media",
+                         bandwidthstr,
+                         file_names[i]);
+                for (size_t j = strlen(meta.progress_bar); j < ws.ws_col; j++) {
+                    meta.progress_bar[j] = ' ';
+                }
+
+                ret = concat_stream(f, &stream, &print_progress, &meta);
                 fclose(f);
                 if (ret != SC_SUCCESS) {
                     ret = SC_UNKNOW_FORMAT;
