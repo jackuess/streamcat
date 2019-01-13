@@ -7,7 +7,7 @@ Streamcat can also be used as a library.
 MPEG-DASH support is nowhere near complete, but many streams should already
 download.
 
-<script id="asciicast-221190" src="https://asciinema.org/a/221190.js" async></script>
+[![asciicast](https://asciinema.org/a/221190.svg)](https://asciinema.org/a/221190)
 
 ## Building
 Make sure you have all dependencies installed on your system:
