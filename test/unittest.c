@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "vendor/scut/scut.h"
+#include "../vendor/scut/scut.h"
 
 void test_urljoin(struct TestResult *tr);
 void test_mpd_manifest_parse_time(struct TestResult *tr);

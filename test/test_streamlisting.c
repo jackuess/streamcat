@@ -16,9 +16,9 @@
 
 #include <string.h>
 
-#include "vendor/scut/scut.h"
+#include "../vendor/scut/scut.h"
 
-#include "streamlisting.h"
+#include "../src/streamlisting.h"
 
 void test_get_streams_of_hls_master_playlist(struct TestResult *tr) {
     struct SCStreamList *streams = NULL;

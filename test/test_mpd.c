@@ -16,8 +16,8 @@
 
 #include <stdlib.h>
 
-#include "mpd.h"
-#include "vendor/scut/scut.h"
+#include "../src/mpd.h"
+#include "../vendor/scut/scut.h"
 
 void test_mpd_manifest_parse_time(struct TestResult *tr) {
     // clang-format off

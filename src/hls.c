@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "vendor/arr/arr.h"
+#include "../vendor/arr/arr.h"
 
 #include "http.h"
 #include "hls.h"

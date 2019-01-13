@@ -22,7 +22,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "vendor/arr/arr.h"
+#include "../vendor/arr/arr.h"
 #include <curl/curl.h>
 
 #include "http.h"

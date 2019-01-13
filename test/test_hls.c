@@ -16,9 +16,9 @@
 
 #include <string.h>
 
-#include "vendor/scut/scut.h"
+#include "../vendor/scut/scut.h"
 
-#include "hls.h"
+#include "../src/hls.h"
 
 void test_hls_parse_master_playlist(struct TestResult *tr) {
     HLSPlaylist *playlist = hls_playlist_new("http://example.com/master.m3u8");

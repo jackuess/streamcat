@@ -17,7 +17,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-#include "vendor/arr/arr.h"
+#include "../vendor/arr/arr.h"
 
 #include "codec.h"
 #include "string.h"

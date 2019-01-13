@@ -18,7 +18,7 @@
 
 #include <stdbool.h>
 
-#include "vendor/arr/arr.h"
+#include "../vendor/arr/arr.h"
 #include <mxml.h>
 
 #include "http.h"
