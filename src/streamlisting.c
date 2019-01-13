@@ -51,6 +51,8 @@ static enum SCErrorCode get_hls_streams(struct SCStreamList *streams,
         hls_streams[0].codecs = &unknown_codec;
     } else if (type == HLS_INVALID_PLAYLIST) {
         return SC_UNKNOW_FORMAT;
+    } else {
+        return SC_UNKNOW_FORMAT;
     }
 
     streams->streams = malloc(streams->len * sizeof streams->streams[0]);
