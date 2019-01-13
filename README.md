@@ -13,7 +13,11 @@ Make sure you have all dependencies installed on your system:
 * [Ffmpeg lib][2]
 * [Mxml][3]
 
-First (optionally) run the test suite, to make sure everything is set up
+First initialize the Git submodules:
+
+    git submodule init --recursive
+
+Optionally run the test suite, to make sure everything is set up
 correctly:
 
     make test
