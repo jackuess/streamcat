@@ -107,9 +107,9 @@ indent:
 	clang-format -i -style=file $(SRC_DIR)/*.h $(SRC_DIR)/*.c
 
 clean:
-	-rm $(BINARIES)
-	-rm $(TEST_DIR)/test
-	-rm -r $(OBJ_DIR)
+	rm -f $(BINARIES)
+	rm -f $(TEST_DIR)/test
+	rm -rf $(OBJ_DIR)
 
 scan: clean
 	scan-build $(MAKE) test
