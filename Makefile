@@ -1,3 +1,4 @@
+PREFIX = /usr/local
 CC = gcc
 CFLAGS = -pedantic -std=c11 -O3 -fstrict-aliasing -fsanitize=undefined
 CFLAGS += -Werror -Wextra -Wall -Wconversion -Wno-sign-conversion -Wstrict-aliasing
@@ -16,7 +17,7 @@ BINARIES = mpdcat streamcat libstreamcat.a $(SO_NAME)
 SRC_DIR = src
 TEST_DIR = test
 
-.PHONY: build clean indent memcheck scan test
+.PHONY: build clean indent install memcheck scan test uninstall
 
 all: $(SO_NAME) $(BINARIES)
 
@@ -113,3 +114,15 @@ clean:
 
 scan: clean
 	scan-build $(MAKE) test
+
+install: $(BINARIES)
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	cp streamcat $(DESTDIR)$(PREFIX)/bin/streamcat
+	cp streamcattui $(DESTDIR)$(PREFIX)/bin/streamcattui
+	mkdir -p $(DESTDIR)$(PREFIX)/lib
+	cp libstreamcat.a $(DESTDIR)$(PREFIX)/lib/libstreamcat.a
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/streamcat
+	rm -f $(DESTDIR)$(PREFIX)/bin/streamcattui
+	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.a

@@ -30,6 +30,20 @@ Then simply run make without any arguments:
 
 The executable `streamcat` should now exist and be ready for your usage.
 
+## Installing
+
+    make install
+
+Will install `streamcat` and `streamcattui` to `/usr/local/bin`.
+
+Optionally specify PREFIX to install with some other prefix than `/usr/local`:
+
+    make install PREFIX=/usr
+
+To uninstall, run:
+
+    make uninstall
+
 ## Usage as a library
 `streamcat.c` can be used as a fairly simple, and comprehensive, example of how
 to use libstreamcat. In addition to that `streamlisting_test.c` can be sourced.
