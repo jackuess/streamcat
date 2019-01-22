@@ -28,7 +28,7 @@ Then simply run make without any arguments:
 
     make
 
-The executable `bin/streamcat` should now exist and be ready for your usage.
+The executable `streamcat` should now exist and be ready for your usage.
 
 ## Usage as a library
 `streamcat.c` can be used as a fairly simple, and comprehensive, example of how
