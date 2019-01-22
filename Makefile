@@ -45,7 +45,7 @@ SHARED_OBJS = \
     $(SHARED_OBJ_DIR)/arr.o
 $(SO_NAME): $(SHARED_OBJS)
 	@mkdir -p $(@D)
-	$(CC) -shared -fPIC -Wl,-soname,$(SO_NAME) -o $@ $(SHARED_OBJS) -lc
+	$(CC) -shared -fPIC -Wl,-soname,$(SO_NAME) -o$@ $^ -lc
 
 $(OBJ_DIR)/arr.o: vendor/arr/arr.c
 	@mkdir -p $(@D)
@@ -58,11 +58,11 @@ STATIC_OBJS = \
     $(OBJ_DIR)/arr.o
 
 libstreamcat.a: $(STATIC_OBJS)
-	ar -rcs $@ $(STATIC_OBJS)
+	ar -rcs $@ $^
 
-streamcat: libstreamcat.a $(SRC_DIR)/streamcat.c
+streamcat: $(SRC_DIR)/streamcat.c libstreamcat.a
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(LIBS) $(VENDOR_SOURCES) $(SRC_DIR)/streamcat.c -L. -lstreamcat -o$@
+	$(CC) $(CFLAGS) $(LIBS) $(VENDOR_SOURCES) $< -L. -lstreamcat -o$@
 
 MPDCAT_LIBS = -lavcodec -lavformat -lavutil -lcurl -lmxml
 MPDCAT_HEADERS = \
