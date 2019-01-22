@@ -45,7 +45,7 @@ SHARED_OBJS = \
     $(SHARED_OBJ_DIR)/arr.o
 $(SO_NAME): $(SHARED_OBJS)
 	@mkdir -p $(@D)
-	$(CC) -shared -fPIC -Wl,-soname,$(SO_NAME) -o$@ $^ -lc
+	$(CC) -shared -fPIC $(CFLAGS) -Wl,-soname,$(SO_NAME) -o$@ $^ -lc
 
 $(OBJ_DIR)/arr.o: vendor/arr/arr.c
 	@mkdir -p $(@D)
