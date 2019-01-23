@@ -116,11 +116,11 @@ scan: clean
 	scan-build $(MAKE) test
 
 install: $(BINARIES)
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp streamcat $(DESTDIR)$(PREFIX)/bin/streamcat
-	cp streamcattui $(DESTDIR)$(PREFIX)/bin/streamcattui
-	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	cp libstreamcat.a $(DESTDIR)$(PREFIX)/lib/libstreamcat.a
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -c streamcat $(DESTDIR)$(PREFIX)/bin/streamcat
+	install -c streamcattui $(DESTDIR)$(PREFIX)/bin/streamcattui
+	install -d $(DESTDIR)$(PREFIX)/lib
+	install -m644 -c libstreamcat.a $(DESTDIR)$(PREFIX)/lib/libstreamcat.a
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/streamcat
