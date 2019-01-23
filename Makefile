@@ -13,13 +13,13 @@ endif
 OBJ_DIR = obj
 SHARED_OBJ_DIR = $(OBJ_DIR)/shared
 SO_NAME = libstreamcat.so.1
-BINARIES = mpdcat streamcat libstreamcat.a $(SO_NAME)
+BINARIES = mpdcat streamcat libstreamcat.a $(SO_NAME).0
 SRC_DIR = src
 TEST_DIR = test
 
 .PHONY: build clean indent install memcheck scan test uninstall
 
-all: $(SO_NAME) $(BINARIES)
+all: $(BINARIES)
 
 VENDOR_SOURCES = \
     vendor/arr/arr.c
@@ -44,9 +44,11 @@ $(SHARED_OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 SHARED_OBJS = \
     $(patsubst $(SRC_DIR)/%.c,$(SHARED_OBJ_DIR)/%.o,$(SOURCES)) \
     $(SHARED_OBJ_DIR)/arr.o
-$(SO_NAME): $(SHARED_OBJS)
+$(SO_NAME).0: $(SHARED_OBJS)
 	@mkdir -p $(@D)
 	$(CC) -shared -fPIC $(CFLAGS) -Wl,-soname,$(SO_NAME) -o$@ $^ -lc
+	ldconfig -n .
+	ln -s $(SO_NAME).0 libstreamcat.so
 
 $(OBJ_DIR)/arr.o: vendor/arr/arr.c
 	@mkdir -p $(@D)
@@ -108,6 +110,8 @@ indent:
 	clang-format -i -style=file $(SRC_DIR)/*.h $(SRC_DIR)/*.c
 
 clean:
+	rm -f libstreamcat.so
+	rm -f libstreamcat.so.1
 	rm -f $(BINARIES)
 	rm -f $(TEST_DIR)/test
 	rm -rf $(OBJ_DIR)
@@ -121,8 +125,14 @@ install: $(BINARIES)
 	install -c streamcattui $(DESTDIR)$(PREFIX)/bin/streamcattui
 	install -d $(DESTDIR)$(PREFIX)/lib
 	install -m644 -c libstreamcat.a $(DESTDIR)$(PREFIX)/lib/libstreamcat.a
+	install -c libstreamcat.so.1.0 $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1.0
+	cp -a libstreamcat.so.1 $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1
+	cp -a libstreamcat.so $(DESTDIR)$(PREFIX)/lib/libstreamcat.so
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/streamcat
 	rm -f $(DESTDIR)$(PREFIX)/bin/streamcattui
 	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.a
+	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1.0
+	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1
+	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.so
