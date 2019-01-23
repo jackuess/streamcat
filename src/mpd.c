@@ -23,6 +23,7 @@
 
 #include "http.h"
 #include "mpd.h"
+#include "streamcat.h"
 
 enum URL_TEMPLATE_IDENTIFIERS {
     _UNDEFINED,

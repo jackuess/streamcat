@@ -20,7 +20,7 @@
 #include <stddef.h>
 
 #include "codec.h"
-#include "streamlisting.h"
+#include "streamcat.h"
 
 struct MPD;
 

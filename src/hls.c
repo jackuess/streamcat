@@ -26,6 +26,7 @@
 
 #include "http.h"
 #include "hls.h"
+#include "streamcat.h"
 
 union HLSTagAttributeData {
     uint64_t integer;

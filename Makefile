@@ -32,7 +32,7 @@ SOURCES = \
     $(SRC_DIR)/muxing.c \
     $(SRC_DIR)/mpd.c \
     $(SRC_DIR)/output.c \
-    $(SRC_DIR)/streamlisting.c
+    $(SRC_DIR)/streamcat.c
 
 $(SHARED_OBJ_DIR)/arr.o: vendor/arr/arr.c
 	@mkdir -p $(@D)
@@ -63,7 +63,7 @@ STATIC_OBJS = \
 libstreamcat.a: $(STATIC_OBJS)
 	ar -rcs $@ $^
 
-streamcat: $(SRC_DIR)/streamcat.c libstreamcat.a
+streamcat: $(SRC_DIR)/main.c libstreamcat.a
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(LIBS) $(VENDOR_SOURCES) $< -L. -lstreamcat -o$@
 
@@ -94,7 +94,7 @@ TEST_SOURCES = \
     $(SRC_DIR)/http.c \
     $(SRC_DIR)/mpd.c \
     $(SRC_DIR)/output.c \
-    $(SRC_DIR)/streamlisting.c \
+    $(SRC_DIR)/streamcat.c \
     vendor/arr/arr.c
 $(TEST_DIR)/test: $(TEST_SOURCES)
 	@mkdir -p $(@D)
@@ -128,6 +128,8 @@ install: $(BINARIES)
 	install -c libstreamcat.so.1.0 $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1.0
 	cp -a libstreamcat.so.1 $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1
 	cp -a libstreamcat.so $(DESTDIR)$(PREFIX)/lib/libstreamcat.so
+	install -d $(DESTDIR)$(PREFIX)/include
+	install -c src/streamcat.h $(DESTDIR)$(PREFIX)/include/streamcat.h
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/streamcat
@@ -136,3 +138,4 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1.0
 	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.so.1
 	rm -f $(DESTDIR)$(PREFIX)/lib/libstreamcat.so
+	rm -f $(DESTDIR)$(PREFIX)/include/streamcat.h

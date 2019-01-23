@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef streamlisting_h_INCLUDED
-#define streamlisting_h_INCLUDED
+#ifndef streamcat_h_INCLUDED
+#define streamcat_h_INCLUDED
 
 #include <stdint.h>
 #include <stddef.h>
-
-#include "codec.h"
 
 enum SCErrorCode {
     SC_SUCCESS,
@@ -33,6 +31,17 @@ enum SCStreamProtocol {
 };
 
 enum SCURLType { SC_INITIALIZATION_URL, SC_MEDIA_URL };
+
+enum SCCodecMediaType {
+    SC_CODEC_AUDIO,
+    SC_CODEC_VIDEO,
+    SC_CODEC_UNKNOWN
+};
+
+struct SCCodec {
+    const char *name;
+    enum SCCodecMediaType codec_media_type;
+};
 
 struct SCStream {
     enum SCStreamProtocol protocol;
@@ -78,4 +87,4 @@ void sc_stream_segment_free(struct SCStreamSegment *segment,
 
 void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data);
 
-#endif // streamlisting_h_INCLUDED
+#endif // streamcat_h_INCLUDED

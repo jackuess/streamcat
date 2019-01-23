@@ -14,411 +14,280 @@
  * limitations under the License.
  */
 
-#define _POSIX_C_SOURCE 200809L
-
-#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
-#include <curl/curl.h>
-
+#include "hls.h"
 #include "http.h"
-#include "muxing.h"
-#include "streamlisting.h"
+#include "mpd.h"
+#include "streamcat.h"
 #include "string.h"
 
-#define ANSI_BG_GREEN "\033[42m"
-#define ANSI_BG_BLUE "\033[44m"
-#define ANSI_FG_BLACK "\033[30m"
-#define ANSI_RESET "\033[0m\n"
+static enum SCErrorCode get_hls_streams(struct SCStreamList *streams,
+                                        char *manifest,
+                                        size_t manifest_len,
+                                        const char *manifest_url) {
+    struct HLSVariantStream *hls_streams = NULL;
+    HLSPlaylist *playlist = hls_playlist_new(manifest_url);
 
-static const char tmp_template[] = "/tmp/streamcatXXXXXX";
-#define TMP_LEN sizeof(tmp_template) / sizeof(tmp_template[0])
+    enum HLSPlaylistType type = hls_parse_playlist(playlist, manifest,
+                                                   manifest_len);
 
-const char *protocol_to_string(enum SCStreamProtocol protocol) {
-    static const char *protocol_hls = "HLS";
-    static const char *protocol_mpd = "MPD";
-    switch (protocol) {
-        case SC_PROTOCOL_HLS:
-            return protocol_hls;
-        case SC_PROTOCOL_MPD:
-            return protocol_mpd;
-    }
-    return NULL;
-}
+    if (type == HLS_MASTER_PLAYLIST) {
+        streams->len = hls_get_variant_streams(&hls_streams, playlist);
+    } else if (type == HLS_MEDIA_PLAYLIST) {
+        static struct SCCodec unknown_codec = {
+            .codec_media_type = SC_CODEC_UNKNOWN,
+            .name = ""
+        };
+        static uint64_t zero = 0;
 
-char *codecs_to_string(const struct SCCodec *codecs, size_t num_codecs) {
-    char *ret = malloc(1);
-    ret[0] = '\0';
-    size_t ret_len = 0;
-    const char delim = ',';
-
-    for (size_t i = 0; i < num_codecs; i++) {
-        ret_len += strlen(codecs[i].name) + 1;
-        ret = realloc(ret, ret_len + 1);
-        ret = strcat(ret, codecs[i].name);
-        ret = strncat(ret, &delim, 1);
-    }
-    if (ret_len > 0) {
-        ret[ret_len-1] = '\0';
-    }
-
-    return ret;
-}
-
-void fprint_stream(FILE *f, const char *base_url,
-                   const struct SCStream *stream) {
-    const char *protocol = protocol_to_string(stream->protocol);
-    char *url = urljoin(base_url, stream->url);
-    char *codecs = codecs_to_string(stream->codecs, stream->num_codecs);
-    fprintf(f, "%s|%s|%s\t%s\t%zu\n",
-            protocol,
-            url,
-            stream->id,
-            codecs,
-            stream->bitrate);
-    free(url);
-    free(codecs);
-}
-
-enum SCErrorCode cat_streamlisting(char *url) {
-    struct SCHTTPResponse resp = http_get(url);
-    if (!resp.ok) {
+        streams->len = 1;
+        hls_streams = calloc(1, sizeof hls_streams[0]);
+        hls_streams[0].url = manifest_url;
+        hls_streams[0].bandwidth = &zero;
+        hls_streams[0].num_codecs = 1;
+        hls_streams[0].codecs = &unknown_codec;
+    } else if (type == HLS_INVALID_PLAYLIST) {
+        return SC_UNKNOW_FORMAT;
+    } else {
         return SC_UNKNOW_FORMAT;
     }
 
-    struct SCStreamList *streams = NULL;
-    enum SCErrorCode scerr = sc_get_streams(&streams,
-                                            resp.data,
-                                            resp.data_size,
-                                            resp.effective_url);
-    if (scerr != SC_SUCCESS) {
-        return scerr;
-    }
-
+    streams->streams = malloc(streams->len * sizeof streams->streams[0]);
     for (size_t i = 0; i < streams->len; i++) {
-        fprint_stream(stdout, resp.effective_url, &streams->streams[i]);
-    }
+        struct SCStream *strm = &streams->streams[i];
 
-    sc_streams_free(streams);
-    response_free(&resp);
+        strm->protocol = SC_PROTOCOL_HLS;
+        strm->url = urljoin(manifest_url, hls_streams[i].url);
+        strm->bitrate = *hls_streams[i].bandwidth;
+        strm->num_codecs = hls_streams[i].num_codecs;
+        strm->codecs = hls_streams[i].codecs;
+        strm->id = malloc(i % 10 + 2);
+        sprintf(strm->id, "%zu", i + 1);
+    }
+    streams->private = playlist;
+
+    if (type == HLS_MEDIA_PLAYLIST) {
+        free(hls_streams);
+    }
 
     return SC_SUCCESS;
 }
 
-char **get_stream_urls(struct SCStream *stream, size_t *num_urls,
-                       enum SCErrorCode *error) {
-    *error = SC_SUCCESS;
-    struct SCHTTPResponse resp = http_get(stream->url);
-    if (!resp.ok) {
-        *error = SC_UNKNOW_FORMAT;
-    }
-    stream->url = resp.effective_url;
-
-    struct SCStreamSegmentData *segment_data;
-    *error = sc_get_stream_segment_data(&segment_data,
-                                        stream,
-                                        resp.data,
-                                        resp.data_size);
-
-    if (*error != SC_SUCCESS) {
-        return NULL;
-    }
-
-    fprintf(stderr, "Found %zu segments\n", segment_data->num_segments);
-
-    struct SCStreamSegment segment;
-    uint64_t time = 0;
-
-    *error = sc_get_stream_segment(&segment, segment_data, SC_INITIALIZATION_URL, &time);
-    if (*error != SC_SUCCESS) {
-        response_free(&resp);
-        return NULL;
-    }
-
-    *num_urls = 0;
-    char **urls = NULL;
-    if (segment.url == NULL) {
-        urls = malloc(sizeof(urls[0]) * (segment_data->num_segments));
-    } else {
-        urls = malloc(sizeof(urls[0]) * (segment_data->num_segments + 1));
-        urls[*num_urls] = malloc(strlen(segment.url) + 1);
-        strcpy(urls[(*num_urls)++], segment.url);
-    }
-    sc_stream_segment_free(&segment, stream->protocol);
-
-    while (SC_SUCCESS == (*error = sc_get_stream_segment(&segment, segment_data, SC_MEDIA_URL, &time))) {
-        if (time == 0) {
-            break;
-        }
-        urls[*num_urls] = malloc(strlen(segment.url) + 1);
-        strcpy(urls[(*num_urls)++], segment.url);
-        sc_stream_segment_free(&segment, stream->protocol);
-    }
-    sc_stream_segment_data_free(segment_data);
-    response_free(&resp);
-
-    return urls;
-}
-
-enum SCErrorCode stream_from_string(struct SCStream *stream, char *arg) {
-    if (str_starts_with(arg, "HLS")) {
-        stream->protocol = SC_PROTOCOL_HLS;
-    } else if (str_starts_with(arg, "MPD")) {
-        stream->protocol = SC_PROTOCOL_MPD;
-    } else {
-        return SC_UNKNOW_FORMAT;
-    }
-
-    const char delim = '|';
-
-    char *url = arg;
-    for (; *url != delim && *url != '\0'; url++) {}
-    url++;
-
-    char *id = url;
-    for (; *id != delim && *id != '\0'; id++) {}
-    *id = '\0';
-    id++;
-
-    stream->url = url;
-    stream->id = id;
-    stream->bitrate = 0;
-    stream->codecs = NULL;
-    stream->num_codecs = 0;
-
-    return SC_SUCCESS;
-}
-
-FILE *create_temp_file(char **file_name) {
-    *file_name = malloc(TMP_LEN);
-    strncpy(*file_name, tmp_template, TMP_LEN);
-    int fd = mkstemp(*file_name);
-    if (fd < 0) {
-        fprintf(stderr, "Could not create tempfile\n");
-        return NULL;
-    }
-    close(fd);
-    FILE *f = fopen(*file_name, "w+");
-    return f;
-}
-
-void formatbitrate(char *str, uint64_t bitrate) {
-    const char *symbol;
-    const char tbps[] = "Tbit/s";
-    const char gbps[] = "Gbit/s";
-    const char mbps[] = "Mbit/s";
-    const char kbps[] = "kbit/s";
-    const char bps[] = "bit/s";
-    double denominator;
-
-    if (bitrate >= 1000000000000) {
-        symbol = tbps;
-        denominator = 1000000000000;
-    } else if (bitrate >= 1000000000) {
-        symbol = gbps;
-        denominator = 1000000000;
-    } else if (bitrate >= 1000000) {
-        symbol = mbps;
-        denominator = 1000000;
-    } else if (bitrate >= 1000) {
-        symbol = kbps;
-        denominator = 1000;
-    } else {
-        symbol = bps;
-        denominator = 1;
-    }
-    snprintf(str, 14, "%.2f %s", (double)bitrate / denominator, symbol);
-}
-
-static size_t
-curl_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
-    return fwrite(buffer, size, nmemb, (FILE *)userp);
-}
-
-enum SCErrorCode concat_stream(FILE *f,
-                               struct SCStream *stream,
-                               void (*on_part_downloaded)(size_t n_parts_total,
-                                                          size_t n_parts,
-                                                          void *userp),
-                               void *userp) {
-    enum SCErrorCode scerr = SC_SUCCESS;
-    char **urls = NULL;
-    size_t num_urls = 0;
-    CURL *curl_handle = NULL;
-
-    urls = get_stream_urls(stream, &num_urls, &scerr);
-
-    if (scerr != SC_SUCCESS) {
-        return scerr;
-    }
-    if (urls == NULL) {
-        return SC_UNKNOW_FORMAT;
-    }
-
-    if (f == NULL) {
-        for (size_t i = 0; i < num_urls; i++) {
-            printf("%s\n", urls[i]);
-            free(urls[i]);
-        }
-    } else {
-        curl_handle = curl_easy_init();
-        CURLcode res;
-        if (!curl_handle) {
-            scerr = SC_UNKNOW_FORMAT;
-            goto finally;
-        }
-        if (CURLE_OK != (res = curl_easy_setopt(curl_handle,
-                                                CURLOPT_WRITEFUNCTION,
-                                                curl_write_data))) {
-            scerr = SC_UNKNOW_FORMAT;
-            goto finally;
-        }
-        if (CURLE_OK !=
-            (res = curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)f))) {
-            scerr = SC_UNKNOW_FORMAT;
-            goto finally;
-        }
-
-        for (size_t i = 0; i < num_urls; i++) {
-            if (CURLE_OK != (res = curl_easy_setopt(curl_handle, CURLOPT_URL, urls[i]))) {
-                goto finally;
-            }
-            if (CURLE_OK != (res = curl_easy_perform(curl_handle))) {
-                goto finally;
-            }
-            if (on_part_downloaded) {
-                (*on_part_downloaded)(num_urls, i + 1, userp);
-            }
-            free(urls[i]);
-        }
-    }
-
-finally:
-    if (curl_handle) {
-        curl_easy_cleanup(curl_handle);
-    }
-    free(urls);
-    return scerr;
-}
-
-struct ProgressMeta {
-    const char *ansi_color_fg;
-    const char *ansi_color_bg;
-    char *progress_bar;
+struct MPDPrivate {
+    struct MPD *mpd;
+    struct Representation *representations;
+    size_t curr_repr_idx;
 };
 
-void print_progress(size_t n_parts_total, size_t n_parts, void *userp) {
-    struct ProgressMeta *meta = userp;
-    size_t bar_size = strlen(meta->progress_bar);
-    size_t curr_pos = n_parts * bar_size / n_parts_total;
-    size_t prev_pos = (n_parts - 1) * bar_size / n_parts_total;
+static enum SCErrorCode get_mpd_streams(struct SCStreamList *streams,
+                                        char *manifest,
+                                        size_t manifest_len,
+                                        const char *manifest_url) {
+    (void)manifest_len;
+    struct Representation *representations = NULL;
 
-    if (curr_pos > prev_pos) {
-        for (size_t i = prev_pos; i < curr_pos; i++) {
-            fprintf(stderr,
-                    "%s%s%c",
-                    meta->ansi_color_fg,
-                    meta->ansi_color_bg,
-                    meta->progress_bar[i]);
-        }
+    struct MPD *mpd = mpd_parse(manifest, manifest_url);
+    streams->len = mpd_get_representations(&representations, mpd);
+    streams->streams = malloc(streams->len * sizeof streams->streams[0]);
+    for (size_t i = 0; i < streams->len; i++) {
+        struct SCStream *strm = &streams->streams[i];
+
+        strm->protocol = SC_PROTOCOL_MPD;
+        strm->url = manifest_url;
+        strm->bitrate = representations[i].bandwidth;
+        strm->num_codecs = representations[i].num_codecs;
+        strm->codecs = representations[i].codecs;
+        strm->id = malloc(i % 10 + 2);
+        sprintf(strm->id, "%zu", i + 1);
     }
-    if (n_parts == n_parts_total) {
-        fprintf(stderr, ANSI_RESET);
+    struct MPDPrivate *priv = malloc(sizeof priv[0]);
+    priv->mpd = mpd;
+    priv->representations = representations;
+    streams->private = priv;
+
+    return SC_SUCCESS;
+}
+
+enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
+                                char *manifest,
+                                size_t manifest_size,
+                                const char *manifest_url) {
+    *streams = malloc(sizeof *streams[0]);
+    if (streams == NULL) {
+        return SC_OUT_OF_MEMORY;
+    }
+
+    if (str_starts_with(manifest, "#EXTM3U")) {
+        return get_hls_streams(*streams, manifest, manifest_size, manifest_url);
+    } else if (str_starts_with(manifest, "<MPD")) {
+        return get_mpd_streams(*streams, manifest, manifest_size, manifest_url);
+    } else {
+        return SC_UNKNOW_FORMAT;
     }
 }
 
-int main(int argc, char *argv[argc + 1]) {
-    const char *output_file_name = NULL;
-    int o;
-
-    while ((o = getopt(argc, argv, "o:")) != -1) {
-        switch (o) {
-        case 'o':
-            output_file_name = optarg;
-            break;
+void sc_streams_free(struct SCStreamList *streams) {
+    for (size_t i = 0; i < streams->len; i++) {
+        free(streams->streams[i].id);
+        if (streams->streams[i].protocol == SC_PROTOCOL_HLS) {
+            free((char*)streams->streams[i].url);
         }
-    };
-    if (optind >= argc) {
-        printf("No stream specified\n");
-        return 1;
     }
-    char **stream_ids = &argv[optind];
+    if (streams->private != NULL) {
+        if (streams->streams[0].protocol == SC_PROTOCOL_HLS) {
+            hls_playlist_free(streams->private);
+        } else if (streams->streams[0].protocol == SC_PROTOCOL_MPD) {
+            struct MPDPrivate *priv = streams->private;
+            free(priv->representations);
+            mpd_free(priv->mpd);
+            free(priv);
+        }
+    }
+    free(streams->streams);
+    free(streams);
+}
 
-    enum SCErrorCode ret = 0;
-    curl_global_init(CURL_GLOBAL_ALL);
-    if (str_starts_with(stream_ids[0], "http")) {
-        ret = cat_streamlisting(stream_ids[0]);
+enum SCErrorCode get_hls_segment_data(struct SCStreamSegmentData *segment_data,
+                                      const struct SCStream *stream,
+                                      char *manifest,
+                                      size_t manifest_size) {
+    HLSPlaylist *playlist = hls_playlist_new(stream->url);
+    hls_parse_playlist(playlist, manifest, manifest_size);
+    segment_data->num_segments = hls_media_segments_len(playlist);
+    segment_data->private = playlist;
+
+    return SC_SUCCESS;
+}
+
+enum SCErrorCode get_mpd_segment_data(struct SCStreamSegmentData *segment_data,
+                                      const struct SCStream *stream,
+                                      char *manifest) {
+    struct MPD *mpd = mpd_parse(manifest, stream->url);
+    struct Representation *reprs = NULL;
+    size_t num_reprs = mpd_get_representations(&reprs, mpd);
+    size_t index;
+
+    if (sscanf(stream->id, "%zu", &index) != 1 ||
+          index > num_reprs) {
+        return SC_UNKNOW_FORMAT;  // TODO(Jacques): Return a better error code
+    }
+
+    struct Representation *repr = &reprs[index - 1];
+    segment_data->num_segments = mpd_get_url_count(repr);
+
+    struct MPDPrivate *priv = malloc(sizeof priv[0]);
+    priv->mpd = mpd;
+    priv->representations = reprs;
+    priv->curr_repr_idx = index - 1;
+    segment_data->private = priv;
+
+    return SC_SUCCESS;
+}
+
+
+enum SCErrorCode
+sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
+                           const struct SCStream *stream,
+                           char *manifest,
+                           size_t manifest_size) {
+    *segment_data = malloc(sizeof *segment_data[0]);
+    if (segment_data == NULL) {
+        return SC_OUT_OF_MEMORY;
+    }
+
+    (*segment_data)->private = NULL;
+    (*segment_data)->protocol = stream->protocol;
+    if (stream->protocol == SC_PROTOCOL_HLS) {
+        return get_hls_segment_data(*segment_data, stream, manifest,
+                                    manifest_size);
+    } else if (stream->protocol == SC_PROTOCOL_MPD) {
+        return get_mpd_segment_data(*segment_data, stream, manifest);
     } else {
-        int num_streams = argc - optind;
-        if (output_file_name == NULL) {
-            for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
-                struct SCStream stream;
-                if (stream_from_string(&stream, stream_ids[i]) != SC_SUCCESS) {
-                    return SC_UNKNOW_FORMAT;
-                }
-                ret = concat_stream(NULL, &stream, NULL, NULL);
-            }
-        } else {
-            char **file_names = malloc(sizeof (file_names[0]) * num_streams);
-            int num_file_names = 0;
+        return SC_UNKNOW_FORMAT;
+    }
+}
 
-            struct winsize ws;
-            ioctl(STDERR_FILENO, TIOCGWINSZ, &ws);
-            struct ProgressMeta meta;
-            meta.ansi_color_fg = ANSI_FG_BLACK;
-            meta.ansi_color_bg = ANSI_BG_GREEN;
-            meta.progress_bar = malloc(ws.ws_col + 1);
-            meta.progress_bar[ws.ws_col] = '\0';
-            char bandwidthstr[14];
+void sc_stream_segment_free(struct SCStreamSegment *segment,
+                            enum SCStreamProtocol protocol) {
+    if (protocol == SC_PROTOCOL_MPD && segment->url != NULL) {
+        free((char*)segment->url);
+    }
+}
 
-            for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
-                struct SCStream stream;
-                if (stream_from_string(&stream, stream_ids[i]) != SC_SUCCESS) {
-                    ret = SC_UNKNOW_FORMAT;
-                    goto cleanup_files;
-                }
-
-                FILE *f = create_temp_file(&file_names[i]);
-                if (f == NULL) {
-                    goto cleanup_files;
-                }
-                num_file_names++;
-
-                formatbitrate(bandwidthstr, stream.bitrate);
-                snprintf(meta.progress_bar,
-                         ws.ws_col + 1,
-                         "%s %s downloaded to %s",
-                         "media",
-                         bandwidthstr,
-                         file_names[i]);
-                for (size_t j = strlen(meta.progress_bar); j < ws.ws_col; j++) {
-                    meta.progress_bar[j] = ' ';
-                }
-
-                ret = concat_stream(f, &stream, &print_progress, &meta);
-                fclose(f);
-                if (ret != SC_SUCCESS) {
-                    ret = SC_UNKNOW_FORMAT;
-                    goto cleanup_files;
-                }
-            }
-
-            // TODO(Jacques): Avoid muxing if only one stream (HLS)
-            mux(output_file_name, num_streams, file_names);
-
-cleanup_files:
-            for (int i = 0; i < num_file_names; i++) {
-                unlink(file_names[i]);
-                free(file_names[i]);
-            }
-            free(file_names);
+void sc_stream_segment_data_free(struct SCStreamSegmentData *segment_data) {
+    if (segment_data->private != NULL) {
+        if (segment_data->protocol == SC_PROTOCOL_HLS) {
+            hls_playlist_free(segment_data->private);
+        } else if (segment_data->protocol == SC_PROTOCOL_MPD) {
+            struct MPDPrivate *priv = segment_data->private;
+            free(priv->representations);
+            mpd_free(priv->mpd);
+            free(priv);
         }
     }
+    free(segment_data);
+}
 
-    curl_global_cleanup();
+enum
+SCErrorCode get_hls_stream_segment(struct SCStreamSegment *segment,
+                                   const struct SCStreamSegmentData *segment_data,
+                                   enum SCURLType url_type,
+                                   uint64_t *time) {
+    if (url_type == SC_INITIALIZATION_URL) {
+        segment->url = NULL;
+        segment->duration = 0;
+        return SC_SUCCESS;
+    }
 
-    return ret;
+    struct HLSMediaSegment *hls_segment = NULL;
+    *time = hls_get_media_segment(&hls_segment,
+                                  (HLSPlaylist*)segment_data->private,
+                                  *time);
+    if (hls_segment == NULL) {
+        segment->duration = 0;
+        segment->url = NULL;
+    } else {
+        segment->duration = hls_segment->duration;
+        segment->url = hls_segment->url;
+    }
+    return SC_SUCCESS;
+}
+
+enum
+SCErrorCode get_mpd_stream_segment(struct SCStreamSegment *segment,
+                                   const struct SCStreamSegmentData *segment_data,
+                                   enum SCURLType url_type,
+                                   uint64_t *time) {
+    struct MPDPrivate *priv = segment_data->private;
+    struct Representation *repr = &priv->representations[priv->curr_repr_idx];
+    char *url = NULL;
+    uint64_t next_time = (uint64_t)mpd_get_url(&url, repr, url_type, *time);
+    if (next_time > 0) {
+        segment->duration = next_time - *time;
+    } else {
+        segment->duration = 0;
+    }
+    segment->url = url;
+    if (url_type == SC_MEDIA_URL) {
+        *time = next_time;
+    }
+
+    return SC_SUCCESS;
+}
+
+enum SCErrorCode
+sc_get_stream_segment(struct SCStreamSegment *segment,
+                      const struct SCStreamSegmentData *segment_data,
+                      enum SCURLType url_type,
+                      uint64_t *time) {
+    if (segment_data->protocol == SC_PROTOCOL_HLS) {
+        return get_hls_stream_segment(segment, segment_data, url_type, time);
+    } else if (segment_data->protocol == SC_PROTOCOL_MPD) {
+        return get_mpd_stream_segment(segment, segment_data, url_type, time);
+    } else {
+        return SC_UNKNOW_FORMAT;
+    }
 }

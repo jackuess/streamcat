@@ -46,7 +46,7 @@ To uninstall, run:
 
 ## Usage as a library
 `streamcat.c` can be used as a fairly simple, and comprehensive, example of how
-to use libstreamcat. In addition to that `streamlisting_test.c` can be sourced.
+to use libstreamcat. In addition to that `streamcat_test.c` can be sourced.
 
 In the future, I hope to be able to provide both reference documentation and
 some annotated examples.
