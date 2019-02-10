@@ -48,7 +48,7 @@ $(SO_NAME).0: $(SHARED_OBJS)
 	@mkdir -p $(@D)
 	$(CC) -shared -fPIC $(CFLAGS) -Wl,-soname,$(SO_NAME) -o$@ $^ -lc
 	ldconfig -n .
-	ln -s $(SO_NAME).0 libstreamcat.so
+	ln -fs $(SO_NAME).0 libstreamcat.so
 
 $(OBJ_DIR)/arr.o: vendor/arr/arr.c
 	@mkdir -p $(@D)
