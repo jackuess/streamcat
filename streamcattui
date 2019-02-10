@@ -14,7 +14,7 @@
 # limitations under the License.
 
 read -p'Output file: ' out_file
-SCBIN=bin/streamcat
+SCBIN=./streamcat
 streams=($($SCBIN $@ | \
              fzf --multi \
                  --tabstop 4 \
