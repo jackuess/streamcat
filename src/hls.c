@@ -172,7 +172,7 @@ static void parse_tag_attributes_extinf(struct HLSTag *tag, char *data) {
     char *c = data;
 
     for (; *c != ',' && *c != '\0'; c++) {}
-    if  (*c == '\0') {
+    if  (c == data) {
         return;
     }
     *c = '\0';

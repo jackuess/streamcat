@@ -114,7 +114,7 @@ void test_hls_parse_media_playlist(struct TestResult *tr) {
         "#EXTM3U\n"
         "#EXT-X-TARGETDURATION:10\n"
         "#EXT-X-VERSION:3\n"
-        "#EXTINF:9.009,\n"
+        "#EXTINF:9.009\n"
         "http://media.example.com/first.ts\n"
         "#EXTINF:9.0090,\n"
         "http://media.example.com/second.ts\n"
