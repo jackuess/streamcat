@@ -362,8 +362,8 @@ int main(int argc, char *argv[argc + 1]) {
                 ret = concat_stream(NULL, &stream, NULL, NULL);
             }
         } else {
-            char **file_names = malloc(sizeof (file_names[0]) * num_streams);
-            int num_file_names = 0;
+            char **tmp_file_names = malloc(sizeof (tmp_file_names[0]) * num_streams);
+            int num_tmp_file_names = 0;
 
             struct winsize ws;
             ioctl(STDERR_FILENO, TIOCGWINSZ, &ws);
@@ -373,6 +373,7 @@ int main(int argc, char *argv[argc + 1]) {
             meta.progress_bar = malloc(ws.ws_col + 1);
             meta.progress_bar[ws.ws_col] = '\0';
             char bandwidthstr[14];
+            bool is_single_stream = (num_streams == 1);
 
             for (int i = 0; i < num_streams && ret == SC_SUCCESS; i++) {
                 struct SCStream stream;
@@ -381,11 +382,16 @@ int main(int argc, char *argv[argc + 1]) {
                     goto cleanup_files;
                 }
 
-                FILE *f = create_temp_file(&file_names[i]);
-                if (f == NULL) {
-                    goto cleanup_files;
+                FILE *f = NULL;
+                if (is_single_stream) {
+                    f = fopen(output_file_name, "wb");
+                } else {
+                    f = create_temp_file(&tmp_file_names[i]);
+                    if (f == NULL) {
+                        goto cleanup_files;
+                    }
+                    num_tmp_file_names++;
                 }
-                num_file_names++;
 
                 formatbitrate(bandwidthstr, stream.bitrate);
                 snprintf(meta.progress_bar,
@@ -393,7 +399,7 @@ int main(int argc, char *argv[argc + 1]) {
                          "%s %s downloaded to %s",
                          "media",
                          bandwidthstr,
-                         file_names[i]);
+                         is_single_stream ? output_file_name : tmp_file_names[i]);
                 for (size_t j = strlen(meta.progress_bar); j < ws.ws_col; j++) {
                     meta.progress_bar[j] = ' ';
                 }
@@ -406,15 +412,16 @@ int main(int argc, char *argv[argc + 1]) {
                 }
             }
 
-            // TODO(Jacques): Avoid muxing if only one stream (HLS)
-            mux(output_file_name, num_streams, file_names);
+            if (!is_single_stream) {
+                mux(output_file_name, num_streams, tmp_file_names);
+            }
 
 cleanup_files:
-            for (int i = 0; i < num_file_names; i++) {
-                unlink(file_names[i]);
-                free(file_names[i]);
+            for (int i = 0; i < num_tmp_file_names; i++) {
+                unlink(tmp_file_names[i]);
+                free(tmp_file_names[i]);
             }
-            free(file_names);
+            free(tmp_file_names);
         }
     }
 
