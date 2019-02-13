@@ -412,6 +412,7 @@ int main(int argc, char *argv[argc + 1]) {
                     goto cleanup_files;
                 }
             }
+            free(meta.progress_bar);
 
             if (!is_single_stream) {
                 mux(output_file_name, num_streams, tmp_file_names);
