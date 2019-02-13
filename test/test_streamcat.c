@@ -157,7 +157,9 @@ void test_get_segments_of_hls_stream(struct TestResult *tr) {
         "#EXT-X-ENDLIST";
 
     enum SCErrorCode ret = sc_get_stream_segment_data(&segment_data,
-                                                      &stream,
+                                                      stream.protocol,
+                                                      stream.id,
+                                                      stream.url,
                                                       manifest,
                                                       strlen(manifest));
 
@@ -330,7 +332,9 @@ void test_get_segments_of_mpd_stream(struct TestResult *tr) {
     // clang-format on
 
     enum SCErrorCode ret = sc_get_stream_segment_data(&segment_data,
-                                                      &stream,
+                                                      stream.protocol,
+                                                      stream.id,
+                                                      stream.url,
                                                       manifest,
                                                       strlen(manifest));
 

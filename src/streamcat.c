@@ -151,10 +151,10 @@ void sc_streams_free(struct SCStreamList *streams) {
 }
 
 enum SCErrorCode get_hls_segment_data(struct SCStreamSegmentData *segment_data,
-                                      const struct SCStream *stream,
+                                      const char *stream_url,
                                       char *manifest,
                                       size_t manifest_size) {
-    HLSPlaylist *playlist = hls_playlist_new(stream->url);
+    HLSPlaylist *playlist = hls_playlist_new(stream_url);
     hls_parse_playlist(playlist, manifest, manifest_size);
     segment_data->num_segments = hls_media_segments_len(playlist);
     segment_data->private = playlist;
@@ -163,14 +163,15 @@ enum SCErrorCode get_hls_segment_data(struct SCStreamSegmentData *segment_data,
 }
 
 enum SCErrorCode get_mpd_segment_data(struct SCStreamSegmentData *segment_data,
-                                      const struct SCStream *stream,
+                                      const char *stream_id,
+                                      const char *stream_url,
                                       char *manifest) {
-    struct MPD *mpd = mpd_parse(manifest, stream->url);
+    struct MPD *mpd = mpd_parse(manifest, stream_url);
     struct Representation *reprs = NULL;
     size_t num_reprs = mpd_get_representations(&reprs, mpd);
     size_t index;
 
-    if (sscanf(stream->id, "%zu", &index) != 1 ||
+    if (sscanf(stream_id, "%zu", &index) != 1 ||
           index > num_reprs) {
         return SC_UNKNOW_FORMAT;  // TODO(Jacques): Return a better error code
     }
@@ -190,7 +191,9 @@ enum SCErrorCode get_mpd_segment_data(struct SCStreamSegmentData *segment_data,
 
 enum SCErrorCode
 sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
-                           const struct SCStream *stream,
+                           enum SCStreamProtocol stream_protocol,
+                           const char *stream_id,
+                           const char *stream_url,
                            char *manifest,
                            size_t manifest_size) {
     *segment_data = malloc(sizeof *segment_data[0]);
@@ -199,14 +202,16 @@ sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
     }
 
     (*segment_data)->private = NULL;
-    (*segment_data)->protocol = stream->protocol;
-    if (stream->protocol == SC_PROTOCOL_HLS) {
-        return get_hls_segment_data(*segment_data, stream, manifest,
-                                    manifest_size);
-    } else if (stream->protocol == SC_PROTOCOL_MPD) {
-        return get_mpd_segment_data(*segment_data, stream, manifest);
-    } else {
-        return SC_UNKNOW_FORMAT;
+    (*segment_data)->protocol = stream_protocol;
+    switch (stream_protocol) {
+        case SC_PROTOCOL_HLS:
+            return get_hls_segment_data(*segment_data, stream_url, manifest,
+                                        manifest_size);
+        case SC_PROTOCOL_MPD:
+            return get_mpd_segment_data(*segment_data, stream_id, stream_url,
+                                        manifest);
+        default:
+            return SC_UNKNOW_FORMAT;
     }
 }
 

@@ -115,11 +115,12 @@ char **get_stream_urls(struct SCStream *stream, size_t *num_urls,
     if (!resp.ok) {
         *error = SC_UNKNOW_FORMAT;
     }
-    stream->url = resp.effective_url;
 
     struct SCStreamSegmentData *segment_data;
     *error = sc_get_stream_segment_data(&segment_data,
-                                        stream,
+                                        stream->protocol,
+                                        stream->id,
+                                        resp.effective_url,
                                         resp.data,
                                         resp.data_size);
 

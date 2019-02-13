@@ -73,7 +73,9 @@ enum SCErrorCode sc_get_streams(struct SCStreamList **streams,
 void sc_streams_free(struct SCStreamList *streams);
 enum SCErrorCode
 sc_get_stream_segment_data(struct SCStreamSegmentData **segment_data,
-                           const struct SCStream *stream,
+                           enum SCStreamProtocol stream_protocol,
+                           const char *stream_id,
+                           const char *stream_url,
                            char *manifest,
                            size_t manifest_size);
 enum SCErrorCode
